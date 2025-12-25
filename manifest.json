@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Bilibili Search Mask",
+  "version": "1.3",
+  "description": "遮罩方案：覆盖左侧导航栏，保留搜索框和个人中心。",
+  "content_scripts": [
+    {
+      "matches": ["https://search.bilibili.com/*"],
+      "js": ["content.js"],
+      "css": ["style.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "host_permissions": ["https://search.bilibili.com/*"]
+}

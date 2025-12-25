@@ -1,0 +1,65 @@
+/* 隐藏原始导航栏和底部区域 */
+#bili-header-container,
+#biliMainFooter {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* 搜索页：垂直居中布局 */
+html.is-entry .search-center {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 100vh !important;
+  box-sizing: border-box !important;
+}
+
+/* 搜索页：搜索框居中 */
+html.is-entry .search-input-wrap {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  width: 640px !important;
+  max-width: 92vw !important;
+}
+
+/* 搜索页：标题间距优化 */
+html.is-entry .search-center-title {
+  margin-top: 0 !important;
+  margin-bottom: 16px !important;
+  position: relative !important;
+  z-index: 100000 !important;
+}
+
+/* 结果页：搜索框保持顶部内联 */
+html.is-results .search-input-wrap {
+  position: static !important;
+  transform: none !important;
+  width: auto !important;
+  z-index: auto !important;
+}
+
+/* 搜索框、logo、标题上浮，避免被遮罩挡住 */
+.search-input-wrap,
+.search-center-title,
+.search-logo {
+  position: relative !important;
+  z-index: 100000 !important;
+  pointer-events: auto !important;
+}
+
+/* 遮罩层样式（由 JS 插入） */
+#bili-header-mask-left {
+  pointer-events: auto;
+  background: #fff;
+  transition: opacity 0.2s ease-in-out; /* 平滑隐藏效果 */
+}
+
+/* 搜索结果页隐藏 logo，避免遮罩重叠 */
+html.is-results .search-logo {
+  display: none !important;
+}
