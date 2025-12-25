@@ -1,6 +1,9 @@
 chrome.storage.sync.get('playerMaskEnabled', (data) => {
   if (data.playerMaskEnabled === false) {
     console.log("播放页遮罩已关闭");
+    // 恢复滚动（关闭时）
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
     return;
   }
 
@@ -12,18 +15,16 @@ chrome.storage.sync.get('playerMaskEnabled', (data) => {
         position: fixed;
         z-index: 999999;
         background: rgba(0,0,0,0.22);
-        backdrop-filter: grayscale(70%) contrast(80%) brightness(99%); /* 无模糊 */
-        pointer-events: auto; /* 外侧拦截交互 */
+        backdrop-filter: grayscale(70%) contrast(80%) brightness(99%);
+        pointer-events: auto;
       }
-
-      /* 角帽：只作视觉（透明命中），用遮罩绘制四分之一圆 */
       .bili-corner {
         position: fixed;
         z-index: 1000000;
-        width: 12px; height: 12px; /* 会在运行时同步为 RADIUS */
+        width: 12px; height: 12px;
         background: rgba(0,0,0,0.22);
         backdrop-filter: grayscale(70%) contrast(80%) brightness(99%);
-        pointer-events: none; /* 不拦截，开孔内保持可点击 */
+        pointer-events: none;
       }
       .corner-tl { 
         -webkit-mask: radial-gradient(circle at 100% 100%, #000 0px, #000 100%, transparent 100%);
@@ -41,8 +42,6 @@ chrome.storage.sync.get('playerMaskEnabled', (data) => {
         -webkit-mask: radial-gradient(circle at 0% 0%, #000 0px, #000 100%, transparent 100%);
         mask: radial-gradient(circle at 0% 0%, #000 0px, #000 100%, transparent 100%);
       }
-
-      /* 聚焦光晕，仅装饰 */
       .bili-focus-ring {
         position: fixed;
         z-index: 1000001;
@@ -50,7 +49,7 @@ chrome.storage.sync.get('playerMaskEnabled', (data) => {
         box-shadow:
           0 0 0 2px rgba(255,255,255,0.14),
           0 18px 54px rgba(0,0,0,0.42);
-        border-radius: 12px; /* 会在运行时同步为 RADIUS */
+        border-radius: 12px;
         transition: top .2s ease, left .2s ease, width .2s ease, height .2s ease;
       }
     `;
@@ -87,9 +86,16 @@ chrome.storage.sync.get('playerMaskEnabled', (data) => {
           .forEach(el => el.addEventListener(evt, block, { passive: false }));
       });
 
+    // ====== 禁用翻页 ======
+    function disableScroll() {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+    disableScroll();
+
     // ====== Layout constants ======
-    const GAP = 12;       // 开孔四周留白
-    let RADIUS = 12;      // 默认圆角半径（会尝试读取播放器真实圆角）
+    const GAP = 12;
+    let RADIUS = 12;
 
     function getPlayer() {
       return (
@@ -110,7 +116,6 @@ chrome.storage.sync.get('playerMaskEnabled', (data) => {
       if (!player) return null;
       const r = player.getBoundingClientRect();
 
-      // 尝试匹配播放器自身圆角
       const cs = getComputedStyle(player);
       const radCandidates = [
         parseRadius(cs.borderTopLeftRadius),
@@ -138,14 +143,12 @@ chrome.storage.sync.get('playerMaskEnabled', (data) => {
 
       const { top, left, right, bottom } = rect;
 
-      // 同步角帽尺寸与聚焦环圆角
       [cornerTL, cornerTR, cornerBL, cornerBR].forEach(c => {
         c.style.width = `${RADIUS}px`;
         c.style.height = `${RADIUS}px`;
       });
       ring.style.borderRadius = `${RADIUS}px`;
 
-      // 四条直角遮罩（不覆盖开孔矩形）
       topStrip.style.top = '0px';
       topStrip.style.left = '0px';
       topStrip.style.width = '100vw';
@@ -166,7 +169,6 @@ chrome.storage.sync.get('playerMaskEnabled', (data) => {
       rightStrip.style.width = `${window.innerWidth - right}px`;
       rightStrip.style.height = `${bottom - top}px`;
 
-      // 四个角帽：贴在开孔四角边界上，颜色一致；只作视觉，不拦截
       cornerTL.style.top = `${top}px`;
       cornerTL.style.left = `${left}px`;
 
@@ -179,7 +181,6 @@ chrome.storage.sync.get('playerMaskEnabled', (data) => {
       cornerBR.style.top = `${bottom - RADIUS}px`;
       cornerBR.style.left = `${right - RADIUS}px`;
 
-      // 聚焦光晕包围开孔
       ring.style.top = `${top}px`;
       ring.style.left = `${left}px`;
       ring.style.width = `${right - left}px`;
