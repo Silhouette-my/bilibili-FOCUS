@@ -1,8 +1,7 @@
-chrome.storage.sync.get('searchMaskEnabled', (data) => {
-  if (data.searchMaskEnabled === false) {
-    console.log("搜索页遮罩已关闭");
-    return; // 禁用时直接退出
-  }
+let __searchObserver = null;
+
+function mountSearchOverlay() {
+  if (document.querySelector('#bili-header-mask-left')) return; // 已挂载则跳过
 
   (function () {
     const HEADER_HEIGHT = 64;
@@ -155,6 +154,7 @@ chrome.storage.sync.get('searchMaskEnabled', (data) => {
         }
       });
       observer.observe(document.body, { childList: true, subtree: true });
+      __searchObserver = observer;
 
       // 滚动/尺寸变化时更新可见性
       let scheduled = false;
@@ -176,4 +176,51 @@ chrome.storage.sync.get('searchMaskEnabled', (data) => {
       document.addEventListener("DOMContentLoaded", init, { once: true });
     }
   })();
+}
+
+function unmountSearchOverlay() {
+  // 断开 MutationObserver
+  if (__searchObserver) {
+    __searchObserver.disconnect();
+    __searchObserver = null;
+  }
+
+  // 移除插入的遮罩元素
+  const mask = document.querySelector("#bili-header-mask-left");
+  if (mask) mask.remove();
+
+  // 恢复 header 和 footer
+  const header = document.querySelector("#bili-header-container");
+  if (header) {
+    header.style.display = "";
+    header.style.visibility = "";
+    header.style.height = "";
+    header.style.overflow = "";
+  }
+  const footer = document.querySelector("#biliMainFooter");
+  if (footer) {
+    footer.style.display = "";
+    footer.style.visibility = "";
+    footer.style.height = "";
+    footer.style.overflow = "";
+  }
+
+  // 移除页面类型标记
+  document.documentElement.classList.remove("is-entry", "is-results");
+}
+
+// 初始化
+chrome.storage.sync.get('searchMaskEnabled', (data) => {
+  if (data.searchMaskEnabled === false) return;
+  mountSearchOverlay();
+});
+
+// 实时响应开关变化，无需刷新页面
+chrome.storage.onChanged.addListener((changes) => {
+  if (!('searchMaskEnabled' in changes)) return;
+  if (changes.searchMaskEnabled.newValue === false) {
+    unmountSearchOverlay();
+  } else {
+    mountSearchOverlay();
+  }
 });
