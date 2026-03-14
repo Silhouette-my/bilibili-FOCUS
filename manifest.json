@@ -16,6 +16,11 @@
       "js": ["playerOverlay.js"],
       "run_at": "document_idle"
     },
+    {
+      "matches": ["*://search.bilibili.com/*"],
+      "js": ["searchOverlay.js"],
+      "run_at": "document_idle"
+    },
   ],
   "action": {
     "default_popup": "controlPanel.html",
