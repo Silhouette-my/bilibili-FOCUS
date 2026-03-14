@@ -66,6 +66,18 @@ bilibili-plugin/
 - 在搜索页和播放页体验纯净界面，避免推荐干扰  
 
 ---
+### :white_circle: 白名单内容
+```
+'search.bilibili.com',   // 搜索页
+'passport.bilibili.com', // 登录认证页
+'message.bilibili.com',  // 消息中心
+'account.bilibili.com',  // 账户中心
+'space.bilibili.com',    // 个人空间
+'api.bilibili.com',      // 后台 API
+'api.vc.bilibili.com',
+'pay.bilibili.com'       // 支付页面
+```
+---
 
 ### 📌 版本记录
 
