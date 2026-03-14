@@ -1,11 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Bilibili 屏蔽插件合集",
-  "version": "2.4",
-  "description": "屏蔽 Bilibili 播放页和搜索页的多余元素",
+  "version": "2.5",
+  "description": "屏蔽 Bilibili 播放页和搜索页的多余元素，并支持专注重定向",
   "permissions": ["storage", "scripting", "tabs"],
-  "host_permissions": ["*://www.bilibili.com/*"],
+  "host_permissions": ["*://*.bilibili.com/*"],
   "content_scripts": [
+    {
+      "matches": ["*://*.bilibili.com/*"],
+      "js": ["redirect.js"],
+      "run_at": "document_start"
+    },
     {
       "matches": ["*://www.bilibili.com/video/*"],
       "js": ["playerOverlay.js"],
