@@ -10,12 +10,7 @@
 ### ✨ 功能介绍
 - **全局专注重定向 (New!)**
   - 自动拦截容易让人分心的首页、动态流等页面，直接重定向到纯净搜索页
-  - 内置智能白名单，安全放行视频播放、个人空间、消息中心、账号设置等核心功能
-  
-- **搜索页优化**  
-  - 使用 [https://search.bilibili.com](https://search.bilibili.com) 获得纯净的搜索框页面  
-  - 隐藏顶部导航栏和个性推送  
-  - 搜索框居中显示，界面简洁无干扰  
+  - 内置智能白名单，安全放行视频播放、直播间、个人空间、消息中心、账号设置等核心功能
 
 - **播放页优化**  
   - 播放页只保留播放器区域  
@@ -23,7 +18,7 @@
 
 - **控制面板**  
   - 提供简洁的功能开关  
-  - 可独立启用/关闭「播放页遮罩」和「搜索页遮罩」  
+  - 可独立启用/关闭「全局专注重定向」和「播放页遮罩」  
 
 ---
 
@@ -46,12 +41,10 @@
 ### 📂 项目结构
 
 ```
-bilibili-plugin/
+bilibili-FOCUS/
 ├── manifest.json          # 插件清单
 ├── redirect.js            # 全局专注重定向逻辑
 ├── playerOverlay.js       # 播放页遮罩逻辑
-├── searchOverlay.js       # 搜索页遮罩逻辑
-├── searchOverlay.css      # 搜索页样式优化
 ├── controlPanel.html      # 控制面板 UI
 ├── controlPanel.js        # 控制面板逻辑
 └── extensionIcon.png      # 插件图标
@@ -63,7 +56,7 @@ bilibili-plugin/
 
 - 安装完成后，浏览器工具栏会出现插件图标  
 - 点击图标打开控制面板，可以自由切换功能开关  
-- 在搜索页和播放页体验纯净界面，避免推荐干扰  
+- 在播放页体验纯净界面，避免推荐干扰  
 
 ---
 ### :white_circle: 白名单内容
@@ -73,6 +66,7 @@ bilibili-plugin/
 'message.bilibili.com',  // 消息中心
 'account.bilibili.com',  // 账户中心
 'space.bilibili.com',    // 个人空间
+'live.bilibili.com',     // 直播间
 'api.bilibili.com',      // 后台 API
 'api.vc.bilibili.com',
 'pay.bilibili.com'       // 支付页面
@@ -85,3 +79,4 @@ bilibili-plugin/
 - **v2.0** 新增播放页遮罩与控制面板  
 - **v2.4** 文件结构优化，支持独立开关  
 - **v2.5** 新增全局专注重定向功能，智能白名单保护核心体验
+- **v2.6** 移除搜索页遮罩功能：经验证，`search.bilibili.com` 本身已是纯净搜索页，无视频推荐流，该功能实际无效果；且 B站改版后相关 CSS 选择器已失效，导致搜索框下拉候选宽度异常，故移除
