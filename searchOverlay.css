@@ -90,11 +90,13 @@ h3 {
 
 label {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   font-size: 14px;
-  white-space: nowrap;
+  line-height: 1.4;
 }
 
 input[type="checkbox"] {
   margin-right: 8px;
+  margin-top: 2px;
+  flex: 0 0 auto;
 }

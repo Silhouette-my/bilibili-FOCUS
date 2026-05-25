@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Bilibili 屏蔽插件合集",
-  "version": "2.6",
-  "description": "屏蔽 Bilibili 播放页和搜索页的多余元素，并支持专注重定向和自动关闭连播",
+  "version": "2.7",
+  "description": "屏蔽 Bilibili 播放页和搜索页的多余元素，并支持专注重定向、关闭连播和隐藏结束推荐",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": ["*://*.bilibili.com/*"],
   "content_scripts": [

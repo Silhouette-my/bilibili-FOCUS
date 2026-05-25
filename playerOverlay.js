@@ -207,14 +207,28 @@ function disableScrollLock() {
   }
 }
 
-/* ====== 自动关闭播放页“自动连播” ====== */
+/* ====== 自动关闭播放页“自动连播”并隐藏结束推荐 ====== */
 function disableContinuousPlay() {
   if (window.__biliDisableContinuousPlayActive) return;
   window.__biliDisableContinuousPlayActive = true;
 
   const AUTOPLAY_TEXT = '自动连播';
+  const ENDING_STYLE_ID = 'bili-hide-ending-related-style';
   let lastClickTime = 0;
   let pendingCheck = false;
+
+  function ensureEndingRecommendationStyle() {
+    if (document.getElementById(ENDING_STYLE_ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ENDING_STYLE_ID;
+    style.textContent = `
+      .bpx-player-ending-related {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   function findAutoPlaySwitch() {
     const labels = Array.from(document.querySelectorAll('.continuous-btn .txt'))
@@ -251,6 +265,7 @@ function disableContinuousPlay() {
     });
   }
 
+  ensureEndingRecommendationStyle();
   scheduleCloseAutoPlay();
 
   const timer = window.setInterval(scheduleCloseAutoPlay, 1000);
