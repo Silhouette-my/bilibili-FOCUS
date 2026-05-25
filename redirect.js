@@ -15,7 +15,8 @@ chrome.storage.sync.get('redirectEnabled', (data) => {
     'space.bilibili.com',    // 个人空间
     'api.bilibili.com',      // 后台 API
     'api.vc.bilibili.com',
-    'pay.bilibili.com'       // 支付页面
+    'pay.bilibili.com',      // 支付页面
+    't.bilibili.com'         // 动态页
   ];
 
   if (whitelistHosts.includes(host)) return;

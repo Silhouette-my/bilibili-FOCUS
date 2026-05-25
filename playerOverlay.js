@@ -1,4 +1,8 @@
-chrome.storage.sync.get('playerMaskEnabled', (data) => {
+chrome.storage.sync.get(['playerMaskEnabled', 'autoPlayOffEnabled'], (data) => {
+  if (data.autoPlayOffEnabled !== false) {
+    disableContinuousPlay();
+  }
+
   if (data.playerMaskEnabled === false) {
     console.log("播放页遮罩已关闭");
     disableScrollLock(); // 关闭时恢复滚动
@@ -201,4 +205,64 @@ function disableScrollLock() {
     window.removeEventListener('touchmove', window.__biliBlockScroll, { passive: false });
     window.__biliBlockScroll = null;
   }
+}
+
+/* ====== 自动关闭播放页“自动连播” ====== */
+function disableContinuousPlay() {
+  if (window.__biliDisableContinuousPlayActive) return;
+  window.__biliDisableContinuousPlayActive = true;
+
+  const AUTOPLAY_TEXT = '自动连播';
+  let lastClickTime = 0;
+  let pendingCheck = false;
+
+  function findAutoPlaySwitch() {
+    const labels = Array.from(document.querySelectorAll('.continuous-btn .txt'))
+      .filter(el => el.textContent.trim() === AUTOPLAY_TEXT);
+
+    for (const label of labels) {
+      const container = label.closest('.continuous-btn') || label.parentElement;
+      const switchBtn = container && container.querySelector('.switch-btn');
+      if (switchBtn) return switchBtn;
+    }
+
+    return null;
+  }
+
+  function closeAutoPlayIfNeeded() {
+    const switchBtn = findAutoPlaySwitch();
+    if (!switchBtn || !switchBtn.classList.contains('on')) return;
+
+    const now = Date.now();
+    if (now - lastClickTime < 1000) return;
+
+    lastClickTime = now;
+    switchBtn.click();
+    console.log('已关闭自动连播');
+  }
+
+  function scheduleCloseAutoPlay() {
+    if (pendingCheck) return;
+    pendingCheck = true;
+
+    requestAnimationFrame(() => {
+      pendingCheck = false;
+      closeAutoPlayIfNeeded();
+    });
+  }
+
+  scheduleCloseAutoPlay();
+
+  const timer = window.setInterval(scheduleCloseAutoPlay, 1000);
+  window.setTimeout(() => window.clearInterval(timer), 15000);
+
+  const observer = new MutationObserver(scheduleCloseAutoPlay);
+  if (!document.body) return;
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class']
+  });
 }
