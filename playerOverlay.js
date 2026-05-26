@@ -1,202 +1,259 @@
-chrome.storage.sync.get(['playerMaskEnabled', 'autoPlayOffEnabled'], (data) => {
-  if (data.autoPlayOffEnabled !== false) {
-    disableContinuousPlay();
+const BF_PLAYER_SELECTORS = [
+  '.bpx-player-container',
+  '.bpx-player-video-wrap',
+  '.bpx-player'
+];
+
+const bfPlayerMaskController = {
+  active: false,
+  style: null,
+  elements: null,
+  observer: null,
+  gap: 12,
+  radius: 12,
+  onResize: null,
+  onScroll: null
+};
+
+const bfAutoPlayController = {
+  active: false,
+  style: null,
+  observer: null,
+  intervalId: null,
+  timeoutId: null,
+  pendingCheck: false,
+  lastClickTime: 0
+};
+
+function bfEnsurePlayerMaskStyle() {
+  if (bfPlayerMaskController.style) return;
+
+  const style = document.createElement('style');
+  style.id = 'bili-player-mask-style';
+  style.textContent = `
+    .bili-strip {
+      position: fixed;
+      z-index: 999999;
+      background: rgba(0,0,0,0.22);
+      backdrop-filter: grayscale(70%) contrast(80%) brightness(99%);
+      pointer-events: auto;
+    }
+    .bili-corner {
+      position: fixed;
+      z-index: 1000000;
+      width: 12px;
+      height: 12px;
+      background: rgba(0,0,0,0.22);
+      backdrop-filter: grayscale(70%) contrast(80%) brightness(99%);
+      pointer-events: none;
+    }
+    .corner-tl {
+      -webkit-mask: radial-gradient(circle at 100% 100%, #000 0px, #000 100%, transparent 100%);
+      mask: radial-gradient(circle at 100% 100%, #000 0px, #000 100%, transparent 100%);
+    }
+    .corner-tr {
+      -webkit-mask: radial-gradient(circle at 0% 100%, #000 0px, #000 100%, transparent 100%);
+      mask: radial-gradient(circle at 0% 100%, #000 0px, #000 100%, transparent 100%);
+    }
+    .corner-bl {
+      -webkit-mask: radial-gradient(circle at 100% 0%, #000 0px, #000 100%, transparent 100%);
+      mask: radial-gradient(circle at 100% 0%, #000 0px, #000 100%, transparent 100%);
+    }
+    .corner-br {
+      -webkit-mask: radial-gradient(circle at 0% 0%, #000 0px, #000 100%, transparent 100%);
+      mask: radial-gradient(circle at 0% 0%, #000 0px, #000 100%, transparent 100%);
+    }
+    .bili-focus-ring {
+      position: fixed;
+      z-index: 1000001;
+      pointer-events: none;
+      box-shadow:
+        0 0 0 2px rgba(255,255,255,0.14),
+        0 18px 54px rgba(0,0,0,0.42);
+      border-radius: 12px;
+      transition: top .2s ease, left .2s ease, width .2s ease, height .2s ease;
+    }
+  `;
+  document.head.appendChild(style);
+  bfPlayerMaskController.style = style;
+}
+
+function bfCreatePlayerMaskElements() {
+  if (bfPlayerMaskController.elements) return bfPlayerMaskController.elements;
+
+  const topStrip = document.createElement('div');
+  topStrip.className = 'bili-strip';
+  const bottomStrip = document.createElement('div');
+  bottomStrip.className = 'bili-strip';
+  const leftStrip = document.createElement('div');
+  leftStrip.className = 'bili-strip';
+  const rightStrip = document.createElement('div');
+  rightStrip.className = 'bili-strip';
+
+  const cornerTL = document.createElement('div');
+  cornerTL.className = 'bili-corner corner-tl';
+  const cornerTR = document.createElement('div');
+  cornerTR.className = 'bili-corner corner-tr';
+  const cornerBL = document.createElement('div');
+  cornerBL.className = 'bili-corner corner-bl';
+  const cornerBR = document.createElement('div');
+  cornerBR.className = 'bili-corner corner-br';
+
+  const ring = document.createElement('div');
+  ring.className = 'bili-focus-ring';
+
+  bfPlayerMaskController.elements = {
+    topStrip,
+    bottomStrip,
+    leftStrip,
+    rightStrip,
+    cornerTL,
+    cornerTR,
+    cornerBL,
+    cornerBR,
+    ring
+  };
+
+  return bfPlayerMaskController.elements;
+}
+
+function bfAttachPlayerMaskElements() {
+  const elements = bfCreatePlayerMaskElements();
+  Object.values(elements).forEach((element) => {
+    if (!element.isConnected) {
+      document.body.appendChild(element);
+    }
+  });
+}
+
+function bfRemovePlayerMaskElements() {
+  if (!bfPlayerMaskController.elements) return;
+  Object.values(bfPlayerMaskController.elements).forEach((element) => element.remove());
+}
+
+function bfGetPlayerElement() {
+  return BF_PLAYER_SELECTORS
+    .map((selector) => document.querySelector(selector))
+    .find(Boolean) || null;
+}
+
+function bfParseRadius(value) {
+  if (!value) return NaN;
+  const match = value.match(/(\d+(\.\d+)?)px/);
+  return match ? Number(match[1]) : NaN;
+}
+
+function bfGetPlayerRect() {
+  const player = bfGetPlayerElement();
+  if (!player) return null;
+
+  const rect = player.getBoundingClientRect();
+  const style = getComputedStyle(player);
+  const radii = [
+    bfParseRadius(style.borderTopLeftRadius),
+    bfParseRadius(style.borderTopRightRadius),
+    bfParseRadius(style.borderBottomLeftRadius),
+    bfParseRadius(style.borderBottomRightRadius)
+  ].filter((value) => !Number.isNaN(value));
+
+  if (radii.length) {
+    bfPlayerMaskController.radius = Math.round(
+      radii.reduce((sum, value) => sum + value, 0) / radii.length
+    );
   }
 
-  if (data.playerMaskEnabled === false) {
-    console.log("播放页遮罩已关闭");
-    disableScrollLock(); // 关闭时恢复滚动
+  return {
+    top: Math.max(0, rect.top - bfPlayerMaskController.gap),
+    left: Math.max(0, rect.left - bfPlayerMaskController.gap),
+    right: Math.min(window.innerWidth, rect.right + bfPlayerMaskController.gap),
+    bottom: Math.min(window.innerHeight, rect.bottom + bfPlayerMaskController.gap)
+  };
+}
+
+function bfUpdatePlayerMask() {
+  if (!bfPlayerMaskController.active || !bfPlayerMaskController.elements) return;
+
+  const rect = bfGetPlayerRect();
+  if (!rect) {
+    Object.values(bfPlayerMaskController.elements).forEach((element) => {
+      element.style.display = 'none';
+    });
     return;
   }
 
-  enableScrollLock(); // 启用时锁定滚动
+  const { top, left, right, bottom } = rect;
+  const { radius } = bfPlayerMaskController;
+  const {
+    topStrip,
+    bottomStrip,
+    leftStrip,
+    rightStrip,
+    cornerTL,
+    cornerTR,
+    cornerBL,
+    cornerBR,
+    ring
+  } = bfPlayerMaskController.elements;
 
-  (function () {
-    // ====== Styles ======
-    const style = document.createElement('style');
-    style.textContent = `
-      .bili-strip {
-        position: fixed;
-        z-index: 999999;
-        background: rgba(0,0,0,0.22);
-        backdrop-filter: grayscale(70%) contrast(80%) brightness(99%);
-        pointer-events: auto; /* 拦截交互 */
-      }
-      .bili-corner {
-        position: fixed;
-        z-index: 1000000;
-        width: 12px; height: 12px;
-        background: rgba(0,0,0,0.22);
-        backdrop-filter: grayscale(70%) contrast(80%) brightness(99%);
-        pointer-events: none; /* 不拦截，开孔保持可点击 */
-      }
-      .corner-tl { 
-        -webkit-mask: radial-gradient(circle at 100% 100%, #000 0px, #000 100%, transparent 100%);
-        mask: radial-gradient(circle at 100% 100%, #000 0px, #000 100%, transparent 100%);
-      }
-      .corner-tr { 
-        -webkit-mask: radial-gradient(circle at 0% 100%, #000 0px, #000 100%, transparent 100%);
-        mask: radial-gradient(circle at 0% 100%, #000 0px, #000 100%, transparent 100%);
-      }
-      .corner-bl { 
-        -webkit-mask: radial-gradient(circle at 100% 0%, #000 0px, #000 100%, transparent 100%);
-        mask: radial-gradient(circle at 100% 0%, #000 0px, #000 100%, transparent 100%);
-      }
-      .corner-br { 
-        -webkit-mask: radial-gradient(circle at 0% 0%, #000 0px, #000 100%, transparent 100%);
-        mask: radial-gradient(circle at 0% 0%, #000 0px, #000 100%, transparent 100%);
-      }
-      .bili-focus-ring {
-        position: fixed;
-        z-index: 1000001;
-        pointer-events: none;
-        box-shadow:
-          0 0 0 2px rgba(255,255,255,0.14),
-          0 18px 54px rgba(0,0,0,0.42);
-        border-radius: 12px;
-        transition: top .2s ease, left .2s ease, width .2s ease, height .2s ease;
-      }
-    `;
-    document.head.appendChild(style);
+  Object.values(bfPlayerMaskController.elements).forEach((element) => {
+    element.style.display = 'block';
+  });
 
-    // ====== Elements ======
-    const topStrip = document.createElement('div');    topStrip.className = 'bili-strip';
-    const bottomStrip = document.createElement('div'); bottomStrip.className = 'bili-strip';
-    const leftStrip = document.createElement('div');   leftStrip.className = 'bili-strip';
-    const rightStrip = document.createElement('div');  rightStrip.className = 'bili-strip';
+  [cornerTL, cornerTR, cornerBL, cornerBR].forEach((corner) => {
+    corner.style.width = `${radius}px`;
+    corner.style.height = `${radius}px`;
+  });
+  ring.style.borderRadius = `${radius}px`;
 
-    const cornerTL = document.createElement('div'); cornerTL.className = 'bili-corner corner-tl';
-    const cornerTR = document.createElement('div'); cornerTR.className = 'bili-corner corner-tr';
-    const cornerBL = document.createElement('div'); cornerBL.className = 'bili-corner corner-bl';
-    const cornerBR = document.createElement('div'); cornerBR.className = 'bili-corner corner-br';
+  topStrip.style.top = '0px';
+  topStrip.style.left = '0px';
+  topStrip.style.width = '100vw';
+  topStrip.style.height = `${top}px`;
 
-    const ring = document.createElement('div'); ring.className = 'bili-focus-ring';
+  bottomStrip.style.top = `${bottom}px`;
+  bottomStrip.style.left = '0px';
+  bottomStrip.style.width = '100vw';
+  bottomStrip.style.height = `${window.innerHeight - bottom}px`;
 
-    document.body.appendChild(topStrip);
-    document.body.appendChild(bottomStrip);
-    document.body.appendChild(leftStrip);
-    document.body.appendChild(rightStrip);
-    document.body.appendChild(cornerTL);
-    document.body.appendChild(cornerTR);
-    document.body.appendChild(cornerBL);
-    document.body.appendChild(cornerBR);
-    document.body.appendChild(ring);
+  leftStrip.style.top = `${top}px`;
+  leftStrip.style.left = '0px';
+  leftStrip.style.width = `${left}px`;
+  leftStrip.style.height = `${bottom - top}px`;
 
-    // ====== Layout constants ======
-    const GAP = 12;
-    let RADIUS = 12;
+  rightStrip.style.top = `${top}px`;
+  rightStrip.style.left = `${right}px`;
+  rightStrip.style.width = `${window.innerWidth - right}px`;
+  rightStrip.style.height = `${bottom - top}px`;
 
-    function getPlayer() {
-      return (
-        document.querySelector('.bpx-player-container') ||
-        document.querySelector('.bpx-player-video-wrap') ||
-        document.querySelector('.bpx-player')
-      );
-    }
+  cornerTL.style.top = `${top}px`;
+  cornerTL.style.left = `${left}px`;
 
-    function parseRadius(str) {
-      if (!str) return NaN;
-      const m = str.match(/(\d+(\.\d+)?)px/);
-      return m ? parseFloat(m[1]) : NaN;
-    }
+  cornerTR.style.top = `${top}px`;
+  cornerTR.style.left = `${right - radius}px`;
 
-    function getPlayerRectAndRadius() {
-      const player = getPlayer();
-      if (!player) return null;
-      const r = player.getBoundingClientRect();
+  cornerBL.style.top = `${bottom - radius}px`;
+  cornerBL.style.left = `${left}px`;
 
-      const cs = getComputedStyle(player);
-      const radCandidates = [
-        parseRadius(cs.borderTopLeftRadius),
-        parseRadius(cs.borderTopRightRadius),
-        parseRadius(cs.borderBottomLeftRadius),
-        parseRadius(cs.borderBottomRightRadius),
-      ].filter(x => !Number.isNaN(x));
-      if (radCandidates.length) {
-        RADIUS = Math.round(radCandidates.reduce((a,b)=>a+b,0) / radCandidates.length);
-      }
+  cornerBR.style.top = `${bottom - radius}px`;
+  cornerBR.style.left = `${right - radius}px`;
 
-      return {
-        top: Math.max(0, r.top - GAP),
-        left: Math.max(0, r.left - GAP),
-        right: Math.min(window.innerWidth, r.right + GAP),
-        bottom: Math.min(window.innerHeight, r.bottom + GAP),
-        width: r.width,
-        height: r.height
-      };
-    }
+  ring.style.top = `${top}px`;
+  ring.style.left = `${left}px`;
+  ring.style.width = `${right - left}px`;
+  ring.style.height = `${bottom - top}px`;
+}
 
-    function updateOverlay() {
-      const rect = getPlayerRectAndRadius();
-      if (!rect) return;
-
-      const { top, left, right, bottom } = rect;
-
-      [cornerTL, cornerTR, cornerBL, cornerBR].forEach(c => {
-        c.style.width = `${RADIUS}px`;
-        c.style.height = `${RADIUS}px`;
-      });
-      ring.style.borderRadius = `${RADIUS}px`;
-
-      topStrip.style.top = '0px';
-      topStrip.style.left = '0px';
-      topStrip.style.width = '100vw';
-      topStrip.style.height = `${top}px`;
-
-      bottomStrip.style.top = `${bottom}px`;
-      bottomStrip.style.left = '0px';
-      bottomStrip.style.width = '100vw';
-      bottomStrip.style.height = `${window.innerHeight - bottom}px`;
-
-      leftStrip.style.top = `${top}px`;
-      leftStrip.style.left = '0px';
-      leftStrip.style.width = `${left}px`;
-      leftStrip.style.height = `${bottom - top}px`;
-
-      rightStrip.style.top = `${top}px`;
-      rightStrip.style.left = `${right}px`;
-      rightStrip.style.width = `${window.innerWidth - right}px`;
-      rightStrip.style.height = `${bottom - top}px`;
-
-      cornerTL.style.top = `${top}px`;
-      cornerTL.style.left = `${left}px`;
-
-      cornerTR.style.top = `${top}px`;
-      cornerTR.style.left = `${right - RADIUS}px`;
-
-      cornerBL.style.top = `${bottom - RADIUS}px`;
-      cornerBL.style.left = `${left}px`;
-
-      cornerBR.style.top = `${bottom - RADIUS}px`;
-      cornerBR.style.left = `${right - RADIUS}px`;
-
-      ring.style.top = `${top}px`;
-      ring.style.left = `${left}px`;
-      ring.style.width = `${right - left}px`;
-      ring.style.height = `${bottom - top}px`;
-    }
-
-    updateOverlay();
-    window.addEventListener('resize', updateOverlay);
-    window.addEventListener('scroll', updateOverlay, { passive: true });
-    const mo = new MutationObserver(updateOverlay);
-    mo.observe(document.body, { childList: true, subtree: true });
-  })();
-});
-
-/* ====== 网页级滚动锁定，不影响点击/快捷键 ====== */
-function enableScrollLock() {
+function bfEnableScrollLock() {
   document.body.style.overflow = 'hidden';
   document.documentElement.style.overflow = 'hidden';
 
-  const blockScroll = e => e.preventDefault();
+  const blockScroll = (event) => event.preventDefault();
   window.addEventListener('wheel', blockScroll, { passive: false });
   window.addEventListener('touchmove', blockScroll, { passive: false });
-
   window.__biliBlockScroll = blockScroll;
 }
 
-function disableScrollLock() {
+function bfDisableScrollLock() {
   document.body.style.overflow = '';
   document.documentElement.style.overflow = '';
 
@@ -207,77 +264,178 @@ function disableScrollLock() {
   }
 }
 
-/* ====== 自动关闭播放页“自动连播”并隐藏结束推荐 ====== */
-function disableContinuousPlay() {
-  if (window.__biliDisableContinuousPlayActive) return;
-  window.__biliDisableContinuousPlayActive = true;
+function bfStartPlayerMask() {
+  if (bfPlayerMaskController.active || !document.body) return;
 
-  const AUTOPLAY_TEXT = '自动连播';
-  const ENDING_STYLE_ID = 'bili-hide-ending-related-style';
-  let lastClickTime = 0;
-  let pendingCheck = false;
+  bfPlayerMaskController.active = true;
+  bfEnsurePlayerMaskStyle();
+  bfAttachPlayerMaskElements();
+  bfEnableScrollLock();
 
-  function ensureEndingRecommendationStyle() {
-    if (document.getElementById(ENDING_STYLE_ID)) return;
+  bfPlayerMaskController.onResize = () => bfUpdatePlayerMask();
+  bfPlayerMaskController.onScroll = () => bfUpdatePlayerMask();
+  bfPlayerMaskController.observer = new MutationObserver(() => bfUpdatePlayerMask());
+  bfPlayerMaskController.observer.observe(document.body, { childList: true, subtree: true });
 
-    const style = document.createElement('style');
-    style.id = ENDING_STYLE_ID;
-    style.textContent = `
-      .bpx-player-ending-related {
-        display: none !important;
-      }
-    `;
-    document.head.appendChild(style);
+  window.addEventListener('resize', bfPlayerMaskController.onResize);
+  window.addEventListener('scroll', bfPlayerMaskController.onScroll, { passive: true });
+
+  bfUpdatePlayerMask();
+}
+
+function bfStopPlayerMask() {
+  if (!bfPlayerMaskController.active) {
+    bfDisableScrollLock();
+    return;
   }
 
-  function findAutoPlaySwitch() {
-    const labels = Array.from(document.querySelectorAll('.continuous-btn .txt'))
-      .filter(el => el.textContent.trim() === AUTOPLAY_TEXT);
+  bfPlayerMaskController.active = false;
+  bfDisableScrollLock();
 
-    for (const label of labels) {
-      const container = label.closest('.continuous-btn') || label.parentElement;
-      const switchBtn = container && container.querySelector('.switch-btn');
-      if (switchBtn) return switchBtn;
+  if (bfPlayerMaskController.observer) {
+    bfPlayerMaskController.observer.disconnect();
+    bfPlayerMaskController.observer = null;
+  }
+
+  if (bfPlayerMaskController.onResize) {
+    window.removeEventListener('resize', bfPlayerMaskController.onResize);
+    bfPlayerMaskController.onResize = null;
+  }
+
+  if (bfPlayerMaskController.onScroll) {
+    window.removeEventListener('scroll', bfPlayerMaskController.onScroll);
+    bfPlayerMaskController.onScroll = null;
+  }
+
+  bfRemovePlayerMaskElements();
+
+  if (bfPlayerMaskController.style) {
+    bfPlayerMaskController.style.remove();
+    bfPlayerMaskController.style = null;
+  }
+}
+
+function bfEnsureEndingStyle() {
+  if (bfAutoPlayController.style) return;
+
+  const style = document.createElement('style');
+  style.id = 'bili-hide-ending-related-style';
+  style.textContent = `
+    .bpx-player-ending-related {
+      display: none !important;
     }
+  `;
+  document.head.appendChild(style);
+  bfAutoPlayController.style = style;
+}
 
-    return null;
+function bfRemoveEndingStyle() {
+  if (bfAutoPlayController.style) {
+    bfAutoPlayController.style.remove();
+    bfAutoPlayController.style = null;
   }
+}
 
-  function closeAutoPlayIfNeeded() {
-    const switchBtn = findAutoPlaySwitch();
-    if (!switchBtn || !switchBtn.classList.contains('on')) return;
+function bfFindAutoPlaySwitch() {
+  return Array.from(document.querySelectorAll('.continuous-btn .txt'))
+    .find((label) => label.textContent.trim() === '自动连播')
+    ?.closest('.continuous-btn')
+    ?.querySelector('.switch-btn') || null;
+}
 
-    const now = Date.now();
-    if (now - lastClickTime < 1000) return;
+function bfCloseAutoPlayIfNeeded() {
+  const switchButton = bfFindAutoPlaySwitch();
+  if (!switchButton || !switchButton.classList.contains('on')) return;
 
-    lastClickTime = now;
-    switchBtn.click();
-    console.log('已关闭自动连播');
-  }
+  const now = Date.now();
+  if (now - bfAutoPlayController.lastClickTime < 1000) return;
 
-  function scheduleCloseAutoPlay() {
-    if (pendingCheck) return;
-    pendingCheck = true;
+  bfAutoPlayController.lastClickTime = now;
+  switchButton.click();
+}
 
-    requestAnimationFrame(() => {
-      pendingCheck = false;
-      closeAutoPlayIfNeeded();
-    });
-  }
+function bfScheduleAutoPlayCheck() {
+  if (!bfAutoPlayController.active || bfAutoPlayController.pendingCheck) return;
 
-  ensureEndingRecommendationStyle();
-  scheduleCloseAutoPlay();
+  bfAutoPlayController.pendingCheck = true;
+  requestAnimationFrame(() => {
+    bfAutoPlayController.pendingCheck = false;
+    bfCloseAutoPlayIfNeeded();
+  });
+}
 
-  const timer = window.setInterval(scheduleCloseAutoPlay, 1000);
-  window.setTimeout(() => window.clearInterval(timer), 15000);
+function bfStartAutoPlayController() {
+  if (bfAutoPlayController.active || !document.body) return;
 
-  const observer = new MutationObserver(scheduleCloseAutoPlay);
-  if (!document.body) return;
+  bfAutoPlayController.active = true;
+  bfEnsureEndingStyle();
+  bfScheduleAutoPlayCheck();
 
-  observer.observe(document.body, {
+  bfAutoPlayController.intervalId = window.setInterval(bfScheduleAutoPlayCheck, 1000);
+  bfAutoPlayController.timeoutId = window.setTimeout(() => {
+    if (bfAutoPlayController.intervalId) {
+      window.clearInterval(bfAutoPlayController.intervalId);
+      bfAutoPlayController.intervalId = null;
+    }
+  }, 15000);
+
+  bfAutoPlayController.observer = new MutationObserver(() => bfScheduleAutoPlayCheck());
+  bfAutoPlayController.observer.observe(document.body, {
     childList: true,
     subtree: true,
     attributes: true,
     attributeFilter: ['class']
   });
 }
+
+function bfStopAutoPlayController() {
+  bfAutoPlayController.active = false;
+  bfAutoPlayController.pendingCheck = false;
+  bfAutoPlayController.lastClickTime = 0;
+
+  if (bfAutoPlayController.observer) {
+    bfAutoPlayController.observer.disconnect();
+    bfAutoPlayController.observer = null;
+  }
+  if (bfAutoPlayController.intervalId) {
+    window.clearInterval(bfAutoPlayController.intervalId);
+    bfAutoPlayController.intervalId = null;
+  }
+  if (bfAutoPlayController.timeoutId) {
+    window.clearTimeout(bfAutoPlayController.timeoutId);
+    bfAutoPlayController.timeoutId = null;
+  }
+
+  bfRemoveEndingStyle();
+}
+
+function bfApplyEffectiveFeatureState(featureState) {
+  const playerMaskEnabled = !featureState || featureState.playerMaskEnabled !== false;
+  const autoPlayOffEnabled = !featureState || featureState.autoPlayOffEnabled !== false;
+
+  if (playerMaskEnabled) {
+    bfStartPlayerMask();
+  } else {
+    bfStopPlayerMask();
+  }
+
+  if (autoPlayOffEnabled) {
+    bfStartAutoPlayController();
+  } else {
+    bfStopAutoPlayController();
+  }
+}
+
+async function bfLoadPlayerRuntime() {
+  await chrome.runtime.sendMessage({ type: 'BF_ENSURE_RUNTIME' }).catch(() => null);
+  const { effectiveFeatureState } = await chrome.storage.local.get(['effectiveFeatureState']);
+  bfApplyEffectiveFeatureState(effectiveFeatureState || {});
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.effectiveFeatureState) {
+    bfApplyEffectiveFeatureState(changes.effectiveFeatureState.newValue || {});
+  }
+});
+
+bfLoadPlayerRuntime();

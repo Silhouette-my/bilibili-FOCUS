@@ -1,8 +1,8 @@
 /* ===== 搜索页遮罩样式 ===== */
 
 /* 隐藏原始导航栏和底部区域 */
-#bili-header-container,
-#biliMainFooter {
+html.bili-search-mask-active #bili-header-container,
+html.bili-search-mask-active #biliMainFooter {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
@@ -10,7 +10,7 @@
 }
 
 /* 搜索页：垂直居中布局 */
-html.is-entry .search-center {
+html.bili-search-mask-active.is-entry .search-center {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -20,7 +20,7 @@ html.is-entry .search-center {
 }
 
 /* 搜索页：搜索框居中 */
-html.is-entry .search-input-wrap {
+html.bili-search-mask-active.is-entry .search-input-wrap {
   position: relative !important;
   left: auto !important;
   top: auto !important;
@@ -30,7 +30,7 @@ html.is-entry .search-input-wrap {
 }
 
 /* 搜索页：标题间距优化 */
-html.is-entry .search-center-title {
+html.bili-search-mask-active.is-entry .search-center-title {
   margin-top: 0 !important;
   margin-bottom: 16px !important;
   position: relative !important;
@@ -38,7 +38,7 @@ html.is-entry .search-center-title {
 }
 
 /* 结果页：搜索框保持顶部内联 */
-html.is-results .search-input-wrap {
+html.bili-search-mask-active.is-results .search-input-wrap {
   position: static !important;
   transform: none !important;
   width: auto !important;
@@ -46,9 +46,9 @@ html.is-results .search-input-wrap {
 }
 
 /* 搜索框、logo、标题上浮，避免被遮罩挡住 */
-.search-input-wrap,
-.search-center-title,
-.search-logo {
+html.bili-search-mask-active .search-input-wrap,
+html.bili-search-mask-active .search-center-title,
+html.bili-search-mask-active .search-logo {
   position: relative !important;
   z-index: 100000 !important;
   pointer-events: auto !important;
@@ -62,41 +62,6 @@ html.is-results .search-input-wrap {
 }
 
 /* 搜索结果页隐藏 logo，避免遮罩重叠 */
-html.is-results .search-logo {
+html.bili-search-mask-active.is-results .search-logo {
   display: none !important;
-}
-
-/* ===== 控制面板 popup 样式 ===== */
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  padding: 12px;
-  margin: 0;
-  background-color: #f9f9f9;
-  width: 220px;
-}
-
-h3 {
-  margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.toggle-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-label {
-  display: flex;
-  align-items: flex-start;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-input[type="checkbox"] {
-  margin-right: 8px;
-  margin-top: 2px;
-  flex: 0 0 auto;
 }

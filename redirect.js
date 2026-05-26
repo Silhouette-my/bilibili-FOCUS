@@ -1,34 +1,98 @@
-chrome.storage.sync.get('redirectEnabled', (data) => {
-  // 默认开启重定向
-  if (data.redirectEnabled === false) return;
+const BF_REDIRECT_TARGET_URL = 'https://search.bilibili.com/all?vt=64450376';
+const BF_REDIRECT_WHITELIST_HOSTS = [
+  'search.bilibili.com',
+  'passport.bilibili.com',
+  'message.bilibili.com',
+  'account.bilibili.com',
+  'space.bilibili.com',
+  'api.bilibili.com',
+  'api.vc.bilibili.com',
+  'pay.bilibili.com',
+  't.bilibili.com'
+];
 
+let bfRedirectEnabled = true;
+let bfHeartbeatTimer = null;
+let bfHeartbeatActive = false;
+
+function bfIsRedirectCandidate() {
   const host = window.location.hostname;
   const pathname = window.location.pathname;
 
-  // 【核心功能保护白名单】
-  // 避免插件把必要的系统页面也重定向了，导致网站无法正常使用
-  const whitelistHosts = [
-    'search.bilibili.com',   // 搜索页本身（重定向目标，必须放行）
-    'passport.bilibili.com', // 登录认证页
-    'message.bilibili.com',  // 消息中心
-    'account.bilibili.com',  // 账户中心
-    'space.bilibili.com',    // 个人空间
-    'api.bilibili.com',      // 后台 API
-    'api.vc.bilibili.com',
-    'pay.bilibili.com',      // 支付页面
-    't.bilibili.com'         // 动态页
-  ];
+  if (BF_REDIRECT_WHITELIST_HOSTS.includes(host)) return false;
+  if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/play/')) return false;
+  if (window.location.href === BF_REDIRECT_TARGET_URL) return false;
 
-  if (whitelistHosts.includes(host)) return;
+  return true;
+}
 
-  // 放行所有视频和番剧播放页
-  if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/play/')) return;
+function bfApplyRedirectState(enabled) {
+  bfRedirectEnabled = enabled !== false;
 
-  // 目标入口 URL
-  const targetUrl = "https://search.bilibili.com/all?vt=64450376";
+  if (bfRedirectEnabled && bfIsRedirectCandidate()) {
+    window.location.replace(BF_REDIRECT_TARGET_URL);
+  }
+}
 
-  // 如果当前不是目标页面，则执行替换跳转
-  if (window.location.href !== targetUrl) {
-    window.location.replace(targetUrl);
+function bfHandleEffectiveFeatureState(featureState) {
+  const redirectEnabled = !featureState || featureState.redirectEnabled !== false;
+  bfApplyRedirectState(redirectEnabled);
+}
+
+function bfSendActivityPing() {
+  chrome.runtime.sendMessage({ type: 'BF_ACTIVITY_PING' }).catch(() => null);
+}
+
+function bfStopHeartbeat() {
+  if (bfHeartbeatTimer) {
+    window.clearInterval(bfHeartbeatTimer);
+    bfHeartbeatTimer = null;
+  }
+  bfHeartbeatActive = false;
+}
+
+function bfStartHeartbeat() {
+  if (bfHeartbeatActive) return;
+  bfHeartbeatActive = true;
+  bfSendActivityPing();
+  bfHeartbeatTimer = window.setInterval(bfSendActivityPing, 15000);
+}
+
+function bfSyncHeartbeat() {
+  const shouldBeActive = document.visibilityState === 'visible' && document.hasFocus();
+
+  if (shouldBeActive) {
+    bfStartHeartbeat();
+    return;
+  }
+
+  if (bfHeartbeatActive) {
+    bfSendActivityPing();
+    bfStopHeartbeat();
+  }
+}
+
+async function bfLoadRuntimeState() {
+  await chrome.runtime.sendMessage({ type: 'BF_ENSURE_RUNTIME' }).catch(() => null);
+  const { effectiveFeatureState } = await chrome.storage.local.get(['effectiveFeatureState']);
+  bfHandleEffectiveFeatureState(effectiveFeatureState || {});
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.effectiveFeatureState) {
+    bfHandleEffectiveFeatureState(changes.effectiveFeatureState.newValue || {});
   }
 });
+
+document.addEventListener('visibilitychange', bfSyncHeartbeat);
+window.addEventListener('focus', bfSyncHeartbeat);
+window.addEventListener('blur', bfSyncHeartbeat);
+window.addEventListener('pagehide', () => {
+  if (bfHeartbeatActive) {
+    bfSendActivityPing();
+    bfStopHeartbeat();
+  }
+});
+
+bfLoadRuntimeState();
+bfSyncHeartbeat();

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Bilibili FOCUS 设置</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <div class="page-copy">
+        <p class="page-kicker">Bilibili FOCUS</p>
+        <h1>锁定与外观设置</h1>
+        <p>命中任一规则时，扩展四项功能都会被强制开启且无法从弹窗关闭。</p>
+      </div>
+      <div class="header-actions">
+        <button id="saveSettings" class="primary-button">保存设置</button>
+        <p id="saveHint" class="save-hint"></p>
+      </div>
+    </header>
+
+    <section class="settings-section">
+      <div class="section-intro">
+        <div>
+          <p class="section-kicker">外观</p>
+          <h2>界面主题</h2>
+          <p>影响扩展弹窗与设置页的配色，便于和 Bilibili 常用的深浅模式保持一致。</p>
+        </div>
+      </div>
+
+      <div class="theme-options">
+        <label class="theme-option">
+          <input type="radio" name="themeMode" value="light">
+          <span class="theme-card">
+            <span class="theme-preview theme-preview-light" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+            <span class="theme-copy">
+              <strong>浅色模式</strong>
+              <span>明亮背景，适合白天浏览。</span>
+            </span>
+          </span>
+        </label>
+
+        <label class="theme-option">
+          <input type="radio" name="themeMode" value="dark">
+          <span class="theme-card">
+            <span class="theme-preview theme-preview-dark" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+            <span class="theme-copy">
+              <strong>深色模式</strong>
+              <span>降低亮度刺激，更贴近夜间观感。</span>
+            </span>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">规则</p>
+          <h2>固定时段</h2>
+          <p>支持每周多时段和跨午夜，例如 23:00 到次日 02:00。</p>
+        </div>
+        <label class="switch-row">
+          <span>启用固定时段锁定</span>
+          <span class="switch-control">
+            <input type="checkbox" id="weeklyScheduleEnabled">
+            <span class="switch-track" aria-hidden="true"></span>
+          </span>
+        </label>
+      </div>
+
+      <div id="weeklyWindowsList" class="window-list"></div>
+      <div class="section-actions">
+        <button id="addWeeklyWindow" class="secondary-button">新增时段</button>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">规则</p>
+          <h2>累计使用超时</h2>
+          <p>统计前台可见且窗口聚焦时的 Bilibili 使用时长，超出阈值后锁定到下一个重置点。</p>
+        </div>
+        <label class="switch-row">
+          <span>启用累计使用超时</span>
+          <span class="switch-control">
+            <input type="checkbox" id="dailyUsageEnabled">
+            <span class="switch-track" aria-hidden="true"></span>
+          </span>
+        </label>
+      </div>
+      <div class="field-grid">
+        <label class="field">
+          <span>每日阈值（分钟）</span>
+          <input type="number" id="dailyUsageMinutes" min="1" max="1440" step="1">
+        </label>
+        <label class="field">
+          <span>每日重置时间</span>
+          <input type="time" id="dailyResetTime">
+        </label>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="section-intro">
+        <div>
+          <p class="section-kicker">说明</p>
+          <h2>使用边界</h2>
+        </div>
+      </div>
+      <ul class="notes">
+        <li>专注倒计时在扩展弹窗里启动，属于手动锁定条件。</li>
+        <li>锁定只保证扩展内部无法关闭，不包含 Chrome 扩展页停用或卸载。</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="lockShared.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

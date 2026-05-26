@@ -1,18 +1,95 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <title>Bilibili 屏蔽控制面板</title>
-  <link rel="stylesheet" href="searchOverlay.css">
+  <title>Bilibili FOCUS 控制面板</title>
+  <link rel="stylesheet" href="controlPanel.css">
 </head>
 <body>
-  <h3>功能开关</h3>
-  <div class="toggle-group">
-    <label><input type="checkbox" id="toggleRedirect"> 全局专注重定向</label>
-    <label><input type="checkbox" id="togglePlayer"> 播放页遮罩</label>
-    <label><input type="checkbox" id="toggleAutoPlayOff"> 自动关闭连播并隐藏结束推荐</label>
-    <label><input type="checkbox" id="toggleSearch"> 搜索页遮罩</label>
-  </div>
+  <main class="popup-shell">
+    <header class="popup-header">
+      <div class="header-copy">
+        <p class="header-kicker">Bilibili FOCUS</p>
+        <h1>功能开关</h1>
+      </div>
+      <span class="status-badge" id="lockStatusBadge" data-state="free">可调整</span>
+    </header>
+
+    <section class="status-card" id="lockStatusCard" data-state="free">
+      <p class="status-title" id="lockStatusTitle">当前未锁定</p>
+      <p class="status-text" id="lockStatusReason">你可以自由切换功能开关。</p>
+      <p class="status-meta" id="lockStatusMeta"></p>
+    </section>
+
+    <div class="toggle-group">
+      <label class="toggle-item">
+        <span class="toggle-copy">
+          <span class="toggle-title">全局专注重定向</span>
+        </span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="toggleRedirect">
+          <span class="toggle-slider" aria-hidden="true"></span>
+        </span>
+      </label>
+
+      <label class="toggle-item">
+        <span class="toggle-copy">
+          <span class="toggle-title">播放页遮罩</span>
+        </span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="togglePlayer">
+          <span class="toggle-slider" aria-hidden="true"></span>
+        </span>
+      </label>
+
+      <label class="toggle-item">
+        <span class="toggle-copy">
+          <span class="toggle-title">自动关闭连播并隐藏结束推荐</span>
+        </span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="toggleAutoPlayOff">
+          <span class="toggle-slider" aria-hidden="true"></span>
+        </span>
+      </label>
+
+      <label class="toggle-item">
+        <span class="toggle-copy">
+          <span class="toggle-title">搜索页遮罩</span>
+        </span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="toggleSearch">
+          <span class="toggle-slider" aria-hidden="true"></span>
+        </span>
+      </label>
+    </div>
+
+    <section class="focus-card">
+      <div class="card-heading">
+        <p class="section-kicker">快捷锁定</p>
+        <p class="focus-title">专注倒计时</p>
+      </div>
+
+      <div class="focus-buttons">
+        <button type="button" data-minutes="30">30 分钟</button>
+        <button type="button" data-minutes="60">60 分钟</button>
+        <button type="button" data-minutes="90">90 分钟</button>
+      </div>
+
+      <div class="focus-custom">
+        <input type="number" id="customFocusMinutes" min="1" max="1440" value="45" placeholder="自定义分钟数">
+        <button type="button" id="startCustomFocus">开始</button>
+      </div>
+
+      <div class="focus-meta" id="focusSessionMeta">当前没有进行中的专注倒计时。</div>
+      <button type="button" class="focus-stop" id="stopFocusSession">结束本次专注</button>
+    </section>
+
+    <div class="footer-actions">
+      <button type="button" class="settings-link" id="openSettings">打开锁定与外观设置</button>
+    </div>
+  </main>
+
+  <script src="lockShared.js"></script>
   <script src="controlPanel.js"></script>
 </body>
 </html>
