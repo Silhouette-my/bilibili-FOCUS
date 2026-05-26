@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Bilibili 屏蔽插件合集",
-  "version": "2.9",
-  "description": "屏蔽 Bilibili 多余推荐内容，并支持锁定策略、专注重定向和深浅主题",
+  "version": "3.0",
+  "description": "屏蔽 Bilibili 多余推荐内容，并支持锁定策略、专注重定向、结束推荐屏蔽与主题化控制面板",
   "permissions": ["storage", "scripting", "tabs", "alarms"],
   "host_permissions": ["*://*.bilibili.com/*"],
   "background": {

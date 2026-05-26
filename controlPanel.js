@@ -15,7 +15,6 @@ const togglePlayer = document.getElementById('togglePlayer');
 const toggleAutoPlayOff = document.getElementById('toggleAutoPlayOff');
 const toggleSearch = document.getElementById('toggleSearch');
 
-const lockStatusBadge = document.getElementById('lockStatusBadge');
 const lockStatusCard = document.getElementById('lockStatusCard');
 const lockStatusTitle = document.getElementById('lockStatusTitle');
 const lockStatusReason = document.getElementById('lockStatusReason');
@@ -53,8 +52,6 @@ function renderFeatureState(featurePreferences, effectiveFeatureState, lockStatu
 
 function renderLockStatus(lockStatus) {
   lockStatusCard.dataset.state = lockStatus.active ? 'locked' : 'free';
-  lockStatusBadge.dataset.state = lockStatus.active ? 'locked' : 'free';
-  lockStatusBadge.textContent = lockStatus.active ? '锁定中' : '可调整';
 
   if (!lockStatus.active) {
     lockStatusTitle.textContent = '当前未锁定';
@@ -112,20 +109,19 @@ function renderFocusSession(focusSession) {
 }
 
 async function refreshPopupState() {
+  const syncState = await chrome.storage.sync.get([...FEATURE_KEYS, 'appearanceConfig']);
+  const appearanceConfig = ensureAppearanceConfig(syncState.appearanceConfig);
+
+  applyTheme(appearanceConfig);
   await chrome.runtime.sendMessage({ type: 'BF_ENSURE_RUNTIME' }).catch(() => null);
 
-  const [syncState, localState] = await Promise.all([
-    chrome.storage.sync.get([...FEATURE_KEYS, 'appearanceConfig']),
-    chrome.storage.local.get(['effectiveFeatureState', 'lockStatus', 'focusSession'])
-  ]);
+  const localState = await chrome.storage.local.get(['effectiveFeatureState', 'lockStatus', 'focusSession']);
 
   const featurePreferences = ensureFeaturePreferences(syncState);
-  const appearanceConfig = ensureAppearanceConfig(syncState.appearanceConfig);
   const effectiveFeatureState = ensureEffectiveFeatureState(localState.effectiveFeatureState);
   latestLockStatus = ensureLockStatus(localState.lockStatus);
   latestFocusSession = ensureFocusSession(localState.focusSession);
 
-  applyTheme(appearanceConfig);
   renderFeatureState(featurePreferences, effectiveFeatureState, latestLockStatus);
   renderLockStatus(latestLockStatus);
   renderFocusSession(latestFocusSession);
