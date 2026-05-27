@@ -25,7 +25,7 @@
 ### ✨ 功能介绍
 - **全局专注重定向**
   - 自动拦截容易让人分心的首页、动态流等页面，直接重定向到纯净搜索页
-  - 内置智能白名单，安全放行视频播放、个人空间、消息中心、账号设置等核心功能
+  - 内置智能白名单，安全放行视频播放、番剧详情、合集/播放列表、直播间、个人空间、消息中心、账号设置等核心功能
   
 - **搜索页优化**  
   - 使用 [https://search.bilibili.com](https://search.bilibili.com) 获得纯净的搜索框页面  
@@ -102,6 +102,7 @@ bilibili-plugin/
 'passport.bilibili.com', // 登录认证页
 'message.bilibili.com',  // 消息中心
 'account.bilibili.com',  // 账户中心
+'live.bilibili.com',     // 直播间
 'space.bilibili.com',    // 个人空间
 'api.bilibili.com',      // 后台 API
 'api.vc.bilibili.com',

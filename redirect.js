@@ -5,6 +5,7 @@ const BF_REDIRECT_WHITELIST_HOSTS = [
   'message.bilibili.com',
   'account.bilibili.com',
   'space.bilibili.com',
+  'live.bilibili.com',
   'api.bilibili.com',
   'api.vc.bilibili.com',
   'pay.bilibili.com',
@@ -20,7 +21,13 @@ function bfIsRedirectCandidate() {
   const pathname = window.location.pathname;
 
   if (BF_REDIRECT_WHITELIST_HOSTS.includes(host)) return false;
-  if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/play/')) return false;
+  if (
+    pathname.startsWith('/video/') ||
+    pathname.startsWith('/bangumi/play/') ||
+    pathname.startsWith('/bangumi/media/') ||
+    pathname.startsWith('/list/') ||
+    pathname.startsWith('/medialist/')
+  ) return false;
   if (window.location.href === BF_REDIRECT_TARGET_URL) return false;
 
   return true;

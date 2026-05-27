@@ -60,6 +60,7 @@
     'message.bilibili.com',
     'account.bilibili.com',
     'space.bilibili.com',
+    'live.bilibili.com',
     'api.bilibili.com',
     'api.vc.bilibili.com',
     'pay.bilibili.com',
@@ -323,7 +324,13 @@
 
       if (!host.endsWith('bilibili.com')) return false;
       if (REDIRECT_WHITELIST_HOSTS.includes(host)) return false;
-      if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/play/')) return false;
+      if (
+        pathname.startsWith('/video/') ||
+        pathname.startsWith('/bangumi/play/') ||
+        pathname.startsWith('/bangumi/media/') ||
+        pathname.startsWith('/list/') ||
+        pathname.startsWith('/medialist/')
+      ) return false;
 
       return true;
     } catch (error) {
