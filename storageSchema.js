@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
 
-  const CONFIG_SCHEMA_VERSION = 3;
+  const CONFIG_SCHEMA_VERSION = 4;
   const RUNTIME_SCHEMA_VERSION = 2;
   const CONFIG_SCHEMA_VERSION_KEY = 'configSchemaVersion';
   const RUNTIME_SCHEMA_VERSION_KEY = 'runtimeSchemaVersion';

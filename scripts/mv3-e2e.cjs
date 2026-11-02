@@ -138,10 +138,10 @@ async function main() {
     context = await chromium.launchPersistentContext(userDataDir, {
       executablePath: options.executablePath,
       headless: !options.headed,
+      ignoreDefaultArgs: ['--disable-extensions'],
       viewport: { width: 1280, height: 800 },
       args: [
-        `--disable-extensions-except=${options.extensionPath}`,
-        `--load-extension=${options.extensionPath}`
+        '--enable-unsafe-extension-debugging'
       ]
     });
 
@@ -180,6 +180,14 @@ async function main() {
       await route.continue();
     });
 
+    // Modern branded Chrome no longer accepts --load-extension. Load only
+    // this fixture extension through CDP in the disposable profile instead.
+    const extensionSession = await context.browser().newBrowserCDPSession();
+    try {
+      await extensionSession.send('Extensions.loadUnpacked', { path: options.extensionPath });
+    } finally {
+      await extensionSession.detach();
+    }
     const worker = await waitForServiceWorker(context, options.timeoutMs);
     const extensionId = new URL(worker.url()).hostname;
     const blockedPageUrl = `chrome-extension://${extensionId}/blocked.html`;
@@ -210,6 +218,13 @@ async function main() {
       waitUntil: 'domcontentloaded',
       timeout: options.timeoutMs
     });
+    await popupPage.setViewportSize({ width: 348, height: 600 });
+    await popupPage.mouse.move(170, 400);
+    await popupPage.mouse.wheel(0, 800);
+    await popupPage.waitForFunction(() => {
+      const button = document.getElementById('openSettings').getBoundingClientRect();
+      return button.top >= 0 && button.bottom <= innerHeight;
+    }, null, { timeout: options.timeoutMs });
     const redirectToggle = popupPage.locator('#toggleRedirect');
     await redirectToggle.waitFor({ timeout: options.timeoutMs });
     assert.equal(await redirectToggle.isChecked(), true);
@@ -268,7 +283,7 @@ async function main() {
     await muteShortcutRow.locator('.shortcut-record-button').click();
     await optionsPage.keyboard.press('m');
     assert.equal(
-      await muteShortcutRow.locator('.shortcut-binding-value').textContent(),
+      await muteShortcutRow.locator('.shortcut-binding-chip > span').textContent(),
       'M'
     );
     await optionsPage.locator('#saveSettings').click();
@@ -282,9 +297,10 @@ async function main() {
       const { playerShortcutConfig } = await chrome.storage.sync.get([
         'playerShortcutConfig'
       ]);
-      const binding = playerShortcutConfig &&
+      const bindings = playerShortcutConfig &&
         playerShortcutConfig.bindings &&
         playerShortcutConfig.bindings.toggleMute;
+      const binding = Array.isArray(bindings) && bindings.length === 1 ? bindings[0] : null;
       return binding &&
         binding.code === 'KeyM' &&
         binding.ctrl === false &&
@@ -304,7 +320,7 @@ async function main() {
     );
     assert.equal(
       await optionsPage.locator(
-        '.shortcut-binding-row[data-action="toggleMute"] .shortcut-binding-value'
+        '.shortcut-binding-row[data-action="toggleMute"] .shortcut-binding-chip > span'
       ).textContent(),
       'M'
     );
@@ -430,6 +446,7 @@ async function main() {
       checks: {
         serviceWorkerLoaded: true,
         popupPreferenceTogglePersisted: true,
+        popupBottomControlsReachableAtChromeHeightLimit: true,
         optionsSettingsPersistedAfterReload: true,
         playerShortcutRecordedAndPersisted: true,
         playerShortcutChangedVideoState: true,

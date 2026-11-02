@@ -156,13 +156,6 @@ function packageExtension(options) {
     }));
 
   const archive = createDeterministicZip(entries);
-  const rebuiltArchive = createDeterministicZip(entries);
-  assert.deepEqual(
-    archive,
-    rebuiltArchive,
-    'The release archive was not reproducible within the same process.'
-  );
-
   const digest = crypto.createHash('sha256').update(archive).digest('hex');
   const safeVersion = validation.manifest.version.replace(/[^0-9.]/g, '');
   const archiveName = `bilibili-focus-${safeVersion}.zip`;

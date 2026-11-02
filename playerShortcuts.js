@@ -13,21 +13,23 @@
     '.bpx-player',
     '.bpx-player-video-wrap'
   ];
-  const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
   const SEEK_STEP_SECONDS = 5;
+  const VOLUME_STEP = 0.1;
+  const BRIGHTNESS_STEP = 0.1;
+  const MIN_BRIGHTNESS = 0.5;
+  const MAX_BRIGHTNESS = 2;
   const TOAST_DURATION_MS = 1600;
   const repeatableActions = new Set(PLAYER_SHORTCUT_REPEATABLE_ACTIONS);
 
   const controller = {
     active: false,
     config: ensurePlayerShortcutConfig(),
-    hoveredPlayer: null,
     unsubscribe: null,
     toast: null,
     toastTimer: null,
     onKeyDown: null,
-    onPointerOver: null,
-    onPointerOut: null
+    brightnessByVideo: new WeakMap()
   };
 
   function isVideoPage() {
@@ -38,13 +40,6 @@
   function getPlayerElement() {
     return PLAYER_SELECTORS
       .map((selector) => document.querySelector(selector))
-      .find(Boolean) || null;
-  }
-
-  function getPlayerFromNode(node) {
-    if (!node || typeof node.closest !== 'function') return null;
-    return PLAYER_SELECTORS
-      .map((selector) => node.closest(selector))
       .find(Boolean) || null;
   }
 
@@ -67,49 +62,6 @@
         node.getAttribute('role') === 'textbox'
       );
     });
-  }
-
-  function isSystemFullscreen(player) {
-    const fullscreenElement = document.fullscreenElement;
-    return Boolean(
-      fullscreenElement &&
-      player &&
-      (
-        fullscreenElement === player ||
-        fullscreenElement.contains(player) ||
-        player.contains(fullscreenElement)
-      )
-    );
-  }
-
-  function isWebFullscreen(player) {
-    if (!player || !window.innerWidth || !window.innerHeight) return false;
-    const rect = player.getBoundingClientRect();
-    const visibleWidth = Math.max(
-      0,
-      Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0)
-    );
-    const visibleHeight = Math.max(
-      0,
-      Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0)
-    );
-    return visibleWidth * visibleHeight >=
-      window.innerWidth * window.innerHeight * 0.9;
-  }
-
-  function isPlayerActive(player) {
-    return Boolean(
-      player &&
-      (
-        controller.hoveredPlayer === player ||
-        (
-          typeof player.matches === 'function' &&
-          player.matches(':hover')
-        ) ||
-        isSystemFullscreen(player) ||
-        isWebFullscreen(player)
-      )
-    );
   }
 
   function removeToast() {
@@ -206,6 +158,57 @@
     showToast(player, video.muted ? '已静音' : '已恢复声音');
   }
 
+  function roundMediaStep(value) {
+    return Math.round(value * 10) / 10;
+  }
+
+  function adjustVolume(player, direction) {
+    const video = requireVideo(player);
+    if (!video) return;
+    const currentVolume = Number.isFinite(Number(video.volume))
+      ? Number(video.volume)
+      : 1;
+    const targetVolume = Math.min(
+      1,
+      Math.max(0, roundMediaStep(currentVolume + direction * VOLUME_STEP))
+    );
+    video.volume = targetVolume;
+    const mutedSuffix = video.muted ? '（当前静音）' : '';
+    showToast(player, `音量 ${Math.round(targetVolume * 100)}%${mutedSuffix}`);
+  }
+
+  function getBrightnessState(video) {
+    let state = controller.brightnessByVideo.get(video);
+    if (!state) {
+      state = {
+        value: 1,
+        baseFilter: typeof video.style.filter === 'string'
+          ? video.style.filter.trim()
+          : ''
+      };
+      controller.brightnessByVideo.set(video, state);
+    }
+    return state;
+  }
+
+  function adjustBrightness(player, direction) {
+    const video = requireVideo(player);
+    if (!video) return;
+    const state = getBrightnessState(video);
+    const targetBrightness = Math.min(
+      MAX_BRIGHTNESS,
+      Math.max(
+        MIN_BRIGHTNESS,
+        roundMediaStep(state.value + direction * BRIGHTNESS_STEP)
+      )
+    );
+    state.value = targetBrightness;
+    video.style.filter = targetBrightness === 1
+      ? state.baseFilter
+      : `${state.baseFilter} brightness(${targetBrightness})`.trim();
+    showToast(player, `亮度 ${Math.round(targetBrightness * 100)}%`);
+  }
+
   function getNextSpeed(currentRate, direction) {
     const current = Number(currentRate) || 1;
     if (direction > 0) {
@@ -253,7 +256,9 @@
       showToast(player, '当前播放器不支持字幕切换', 'error');
       return;
     }
-    if (!languageItems.length) {
+
+    const wasClosed = closeSwitch.classList.contains('bpx-state-active');
+    if (wasClosed && !languageItems.length) {
       showToast(
         player,
         loginRequired ? '登录后才能使用字幕' : '当前视频没有可用字幕',
@@ -262,9 +267,34 @@
       return;
     }
 
-    const wasClosed = closeSwitch.classList.contains('bpx-state-active');
-    closeSwitch.click();
+    if (wasClosed) {
+      languageItems[0].click();
+    } else {
+      closeSwitch.click();
+    }
     showToast(player, wasClosed ? '字幕已开启' : '字幕已关闭');
+  }
+
+  function toggleDanmaku(player) {
+    const switchRoot = player.querySelector('.bpx-player-dm-switch');
+    const switchInput = switchRoot?.querySelector('.bui-danmaku-switch-input') ||
+      player.querySelector('.bui-danmaku-switch-input');
+    const control = switchInput || switchRoot;
+    if (!control) {
+      showToast(player, '当前播放器不支持弹幕切换', 'error');
+      return;
+    }
+
+    const wasChecked = switchInput && typeof switchInput.checked === 'boolean'
+      ? switchInput.checked
+      : null;
+    control.click();
+    showToast(
+      player,
+      wasChecked === null
+        ? '已切换弹幕显示'
+        : (wasChecked ? '弹幕已关闭' : '弹幕已开启')
+    );
   }
 
   function clickControl(player, selector, successMessage, unavailableMessage) {
@@ -282,16 +312,15 @@
     seekBackward: (player) => seek(player, -SEEK_STEP_SECONDS),
     seekForward: (player) => seek(player, SEEK_STEP_SECONDS),
     toggleMute,
+    volumeDown: (player) => adjustVolume(player, -1),
+    volumeUp: (player) => adjustVolume(player, 1),
+    brightnessDown: (player) => adjustBrightness(player, -1),
+    brightnessUp: (player) => adjustBrightness(player, 1),
     speedDown: (player) => changeSpeed(player, -1),
     speedUp: (player) => changeSpeed(player, 1),
     speedReset: (player) => setSpeed(player, 1),
     toggleSubtitle,
-    toggleDanmaku: (player) => clickControl(
-      player,
-      '.bpx-player-dm-switch',
-      '已切换弹幕显示',
-      '当前播放器不支持弹幕切换'
-    ),
+    toggleDanmaku,
     toggleWebFullscreen: (player) => clickControl(
       player,
       '.bpx-player-ctrl-web',
@@ -327,7 +356,7 @@
     if (!actionId) return;
 
     const player = getPlayerElement();
-    if (!isPlayerActive(player)) return;
+    if (!player) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -337,19 +366,6 @@
     } catch (error) {
       showToast(player, '播放器操作失败', 'error');
     }
-  }
-
-  function handlePointerOver(event) {
-    if (!isVideoPage()) return;
-    const player = getPlayerFromNode(event.target);
-    if (player) controller.hoveredPlayer = player;
-  }
-
-  function handlePointerOut(event) {
-    const player = controller.hoveredPlayer;
-    if (!player) return;
-    const relatedPlayer = getPlayerFromNode(event.relatedTarget);
-    if (relatedPlayer !== player) controller.hoveredPlayer = null;
   }
 
   function applySnapshot(snapshot) {
@@ -362,11 +378,7 @@
     if (controller.active) return;
     controller.active = true;
     controller.onKeyDown = handleKeyDown;
-    controller.onPointerOver = handlePointerOver;
-    controller.onPointerOut = handlePointerOut;
     window.addEventListener('keydown', controller.onKeyDown, true);
-    document.addEventListener('pointerover', controller.onPointerOver, true);
-    document.addEventListener('pointerout', controller.onPointerOut, true);
     controller.unsubscribe = backgroundClient.subscribe(applySnapshot);
     backgroundClient.getState({ refresh: true }).then(applySnapshot).catch(() => null);
   }
@@ -375,12 +387,7 @@
     if (!controller.active) return;
     controller.active = false;
     window.removeEventListener('keydown', controller.onKeyDown, true);
-    document.removeEventListener('pointerover', controller.onPointerOver, true);
-    document.removeEventListener('pointerout', controller.onPointerOut, true);
     controller.onKeyDown = null;
-    controller.onPointerOver = null;
-    controller.onPointerOut = null;
-    controller.hoveredPlayer = null;
     if (controller.unsubscribe) {
       controller.unsubscribe();
       controller.unsubscribe = null;

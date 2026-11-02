@@ -43,6 +43,10 @@
     { id: 'seekBackward', label: '后退 5 秒', repeatable: true },
     { id: 'seekForward', label: '前进 5 秒', repeatable: true },
     { id: 'toggleMute', label: '静音 / 恢复声音' },
+    { id: 'volumeDown', label: '降低音量', repeatable: true },
+    { id: 'volumeUp', label: '提高音量', repeatable: true },
+    { id: 'brightnessDown', label: '降低亮度', repeatable: true },
+    { id: 'brightnessUp', label: '提高亮度', repeatable: true },
     { id: 'speedDown', label: '降低倍速' },
     { id: 'speedUp', label: '提高倍速' },
     { id: 'speedReset', label: '恢复 1× 倍速' },
@@ -61,7 +65,7 @@
   );
   const DEFAULT_PLAYER_SHORTCUT_BINDINGS = Object.freeze(
     PLAYER_SHORTCUT_ACTION_IDS.reduce((bindings, actionId) => {
-      bindings[actionId] = null;
+      bindings[actionId] = Object.freeze([]);
       return bindings;
     }, {})
   );
@@ -282,14 +286,17 @@
     const bindings = {};
 
     PLAYER_SHORTCUT_ACTION_IDS.forEach((actionId) => {
-      const binding = normalizeShortcutBinding(sourceBindings[actionId]);
-      const signature = getShortcutBindingSignature(binding);
-      if (!binding || usedBindings.has(signature)) {
-        bindings[actionId] = null;
-        return;
-      }
-      usedBindings.add(signature);
-      bindings[actionId] = binding;
+      const rawBindings = Array.isArray(sourceBindings[actionId])
+        ? sourceBindings[actionId]
+        : [sourceBindings[actionId]];
+      bindings[actionId] = rawBindings.reduce((actionBindings, rawBinding) => {
+        const binding = normalizeShortcutBinding(rawBinding);
+        const signature = getShortcutBindingSignature(binding);
+        if (!binding || usedBindings.has(signature)) return actionBindings;
+        usedBindings.add(signature);
+        actionBindings.push(binding);
+        return actionBindings;
+      }, []);
     });
 
     return {
@@ -299,16 +306,19 @@
   }
 
   function shortcutBindingMatchesEvent(binding, event) {
-    const normalized = normalizeShortcutBinding(binding);
-    return Boolean(
-      normalized &&
-      event &&
-      event.code === normalized.code &&
-      Boolean(event.ctrlKey) === normalized.ctrl &&
-      Boolean(event.altKey) === normalized.alt &&
-      Boolean(event.shiftKey) === normalized.shift &&
-      Boolean(event.metaKey) === normalized.meta
-    );
+    const bindings = Array.isArray(binding) ? binding : [binding];
+    return bindings.some((candidate) => {
+      const normalized = normalizeShortcutBinding(candidate);
+      return Boolean(
+        normalized &&
+        event &&
+        event.code === normalized.code &&
+        Boolean(event.ctrlKey) === normalized.ctrl &&
+        Boolean(event.altKey) === normalized.alt &&
+        Boolean(event.shiftKey) === normalized.shift &&
+        Boolean(event.metaKey) === normalized.meta
+      );
+    });
   }
 
   function ensureUsageState(raw) {
@@ -445,49 +455,6 @@
     return windows.filter((windowConfig) => isWeeklyWindowActiveAt(date, windowConfig));
   }
 
-  function buildWindowOccurrences(fromDate, windows, daysAhead) {
-    const items = [];
-    const startDate = new Date(fromDate);
-    startDate.setHours(0, 0, 0, 0);
-
-    for (let offset = 0; offset <= daysAhead; offset += 1) {
-      const baseDate = new Date(startDate);
-      baseDate.setDate(baseDate.getDate() + offset);
-      const weekday = baseDate.getDay();
-
-      windows.forEach((windowConfig) => {
-        if (windowConfig.weekday !== weekday) return;
-
-        const start = new Date(baseDate);
-        start.setMinutes(windowConfig.startMinutes);
-
-        const end = new Date(baseDate);
-        if (windowConfig.endMinutes > windowConfig.startMinutes) {
-          end.setMinutes(windowConfig.endMinutes);
-        } else {
-          end.setDate(end.getDate() + 1);
-          end.setMinutes(windowConfig.endMinutes);
-        }
-
-        items.push(start.getTime(), end.getTime());
-      });
-    }
-
-    return items;
-  }
-
-  function getUpcomingScheduleChanges(date, windows, daysAhead) {
-    return buildWindowOccurrences(date, windows, daysAhead)
-      .filter((time) => time > date.getTime())
-      .sort((a, b) => a - b);
-  }
-
-  function getNextScheduleChangeAt(date, windows) {
-    const futureTimes = getUpcomingScheduleChanges(date, windows, 8);
-
-    return futureTimes.length ? futureTimes[0] : null;
-  }
-
   function computeEffectiveFeatureState(featurePreferences, forcedFeatureKeys) {
     const effective = ensureFeaturePreferences(featurePreferences);
     const forcedKeys = forcedFeatureKeys === true
@@ -618,8 +585,6 @@
     getMinutesOfDay,
     getLogicalDayInfo,
     getActiveWeeklyWindows,
-    getUpcomingScheduleChanges,
-    getNextScheduleChangeAt,
     computeEffectiveFeatureState,
     getLockReasonsSummary,
     createWindowId,

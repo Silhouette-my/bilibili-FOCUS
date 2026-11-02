@@ -88,7 +88,7 @@ function createStorageArea(initialState = {}) {
 async function createBackgroundHarness(options = {}) {
   const context = vm.createContext({
     URL,
-    Date,
+    Date: options.Date || Date,
     Promise,
     console,
     queueMicrotask,
@@ -305,6 +305,28 @@ test('shared URL policy uses a strict Bilibili hostname boundary', () => {
       `${allowedUrl} should remain allowed`
     );
   }
+});
+
+test('final activity ping bills the active interval but excludes time until refocus', async () => {
+  let now = new Date(2026, 9, 23, 12).getTime();
+  class ClockDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [now])); }
+    static now() { return now; }
+  }
+  const harness = await createBackgroundHarness({ Date: ClockDate });
+  const sender = { id: EXTENSION_ID, url: 'https://www.bilibili.com/video/BV-idle', tab: { id: 1 } };
+  const ping = (final = false) => harness.sendMessage({ type: harness.contracts.MESSAGE_TYPES.ACTIVITY_PING, final }, sender);
+  await ping();
+  now += 15000;
+  await ping(true);
+  assert.equal(harness.local.state.usageState.accumulatedMs, 15000);
+  assert.equal(harness.local.state.usageState.lastPingByTab[1], undefined);
+  now += 30000;
+  await ping();
+  assert.equal(harness.local.state.usageState.accumulatedMs, 15000, 'idle interval is not credited at refocus');
+  now += 15000;
+  await ping();
+  assert.equal(harness.local.state.usageState.accumulatedMs, 30000);
 });
 
 test('state-changing commands reject non-extension-page senders before writing', async () => {
@@ -1388,6 +1410,10 @@ test('manifest exposes only required runtime permissions and packaged scripts', 
       'playerShortcuts.js'
     ]
   );
+  const dynamicHotSearchScript = manifest.content_scripts.find(
+    (contentScript) => contentScript.js?.includes('dynamicHotSearch.js')
+  );
+  assert.deepEqual(dynamicHotSearchScript?.matches, ['*://t.bilibili.com/*']);
   for (const file of [
     'blocked.html',
     'blocked.css',
@@ -1397,7 +1423,8 @@ test('manifest exposes only required runtime permissions and packaged scripts', 
     'storageSchema.js',
     'runtimeContracts.js',
     'backgroundClient.js',
-    'playerShortcuts.js'
+    'playerShortcuts.js',
+    'dynamicHotSearch.js'
   ]) {
     assert.equal(fs.existsSync(path.join(ROOT, file)), true, `${file} should exist`);
   }

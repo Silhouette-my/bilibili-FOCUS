@@ -64,6 +64,8 @@ This permission does not grant access to unrelated domains. Broadening it to
 - `playerOverlay.js` runs only on `www.bilibili.com/video/*`.
 - `searchOverlay.js` and `searchOverlay.css` run only on
   `search.bilibili.com/*`.
+- `dynamicHotSearch.js` runs only on `t.bilibili.com/*` and hides the dynamic
+  page's hot-search card when the shared search-distraction setting is enabled.
 - Content scripts use the browser's isolated JavaScript world. Player controls
   and presentation changes made to page DOM are user-experience features, not
   security boundaries.

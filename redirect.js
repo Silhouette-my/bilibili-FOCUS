@@ -31,7 +31,7 @@ function bfSyncHeartbeat() {
   }
 
   if (bfHeartbeatActive) {
-    bfSendActivityPing();
+    bfSendActivityPing(true);
     bfStopHeartbeat();
   }
 }

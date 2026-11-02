@@ -842,7 +842,8 @@ function recordActivityPing(sender, options = {}) {
     }
 
     usageState.dayKey = dailyInfo.dayKey;
-    usageState.lastPingByTab[tabId] = now.getTime();
+    if (options.final === true) delete usageState.lastPingByTab[tabId];
+    else usageState.lastPingByTab[tabId] = now.getTime();
     usageState.accumulatedMs += deltaMs;
 
     const dailyLimitExceeded = Boolean(
@@ -870,10 +871,6 @@ function recordActivityPing(sender, options = {}) {
       ...snapshot,
       usageState: ensureUsageState(usageState)
     };
-
-    if (options.final === true) {
-      return latestRuntimeSnapshot;
-    }
 
     return latestRuntimeSnapshot;
   });

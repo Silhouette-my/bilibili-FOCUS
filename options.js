@@ -158,6 +158,20 @@ function startShortcutRecording(actionId, button) {
   shortcutRecordingHint.textContent = '请按下要绑定的单键或组合键；按 Esc 取消。';
 }
 
+function getActionBindings(actionId) {
+  const bindings = workingShortcutConfig.bindings[actionId];
+  return Array.isArray(bindings) ? bindings : [];
+}
+
+function removeShortcutBinding(actionId, binding) {
+  const signature = getShortcutBindingSignature(binding);
+  workingShortcutConfig.bindings[actionId] = getActionBindings(actionId)
+    .filter((candidate) => getShortcutBindingSignature(candidate) !== signature);
+  finishShortcutRecording(`已移除 ${formatShortcutBinding(binding)}。`);
+  renderShortcutBindings();
+  markDirty();
+}
+
 function renderShortcutBindings() {
   shortcutBindingList.innerHTML = '';
   playerShortcutsEnabled.checked = workingShortcutConfig.enabled;
@@ -171,9 +185,34 @@ function renderShortcutBindings() {
     label.className = 'shortcut-action-copy';
     const title = document.createElement('strong');
     title.textContent = action.label;
-    const value = document.createElement('span');
+    const value = document.createElement('div');
     value.className = 'shortcut-binding-value';
-    value.textContent = formatShortcutBinding(workingShortcutConfig.bindings[action.id]);
+    const actionBindings = getActionBindings(action.id);
+    if (!actionBindings.length) {
+      const empty = document.createElement('span');
+      empty.className = 'shortcut-binding-empty';
+      empty.textContent = '未设置';
+      value.appendChild(empty);
+    } else {
+      actionBindings.forEach((binding) => {
+        const chip = document.createElement('span');
+        chip.className = 'shortcut-binding-chip';
+        const bindingLabel = document.createElement('span');
+        bindingLabel.textContent = formatShortcutBinding(binding);
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'shortcut-binding-remove';
+        removeButton.textContent = '×';
+        removeButton.title = `移除 ${bindingLabel.textContent}`;
+        removeButton.setAttribute('aria-label', removeButton.title);
+        removeButton.addEventListener('click', () => {
+          removeShortcutBinding(action.id, binding);
+        });
+        chip.appendChild(bindingLabel);
+        chip.appendChild(removeButton);
+        value.appendChild(chip);
+      });
+    }
     label.appendChild(title);
     label.appendChild(value);
 
@@ -189,11 +228,11 @@ function renderShortcutBindings() {
     const clearButton = document.createElement('button');
     clearButton.type = 'button';
     clearButton.className = 'danger-button shortcut-clear-button';
-    clearButton.textContent = '清除';
-    clearButton.disabled = !workingShortcutConfig.bindings[action.id];
+    clearButton.textContent = '全部清除';
+    clearButton.disabled = actionBindings.length === 0;
     clearButton.addEventListener('click', () => {
-      workingShortcutConfig.bindings[action.id] = null;
-      finishShortcutRecording('已清除该快捷键。');
+      workingShortcutConfig.bindings[action.id] = [];
+      finishShortcutRecording('已清除该动作的全部快捷键。');
       renderShortcutBindings();
       markDirty();
     });
@@ -243,15 +282,27 @@ function handleShortcutRecording(event) {
     meta: event.metaKey
   });
   const signature = getShortcutBindingSignature(binding);
+  const currentBindings = getActionBindings(recordingShortcutActionId);
+  if (currentBindings.some(
+    (candidate) => getShortcutBindingSignature(candidate) === signature
+  )) {
+    const message = `${formatShortcutBinding(binding)} 已绑定到该动作。`;
+    finishShortcutRecording(message);
+    renderShortcutBindings();
+    shortcutRecordingHint.textContent = message;
+    return;
+  }
+
   PLAYER_SHORTCUT_ACTIONS.forEach((action) => {
-    if (
-      action.id !== recordingShortcutActionId &&
-      getShortcutBindingSignature(workingShortcutConfig.bindings[action.id]) === signature
-    ) {
-      workingShortcutConfig.bindings[action.id] = null;
-    }
+    if (action.id === recordingShortcutActionId) return;
+    workingShortcutConfig.bindings[action.id] = getActionBindings(action.id)
+      .filter((candidate) => getShortcutBindingSignature(candidate) !== signature);
   });
-  workingShortcutConfig.bindings[recordingShortcutActionId] = binding;
+  workingShortcutConfig.bindings[recordingShortcutActionId] = [
+    ...currentBindings,
+    binding
+  ];
+  workingShortcutConfig = ensurePlayerShortcutConfig(workingShortcutConfig);
   const message = `已录制 ${formatShortcutBinding(binding)}；点击“保存设置”后生效。`;
   finishShortcutRecording(message);
   renderShortcutBindings();

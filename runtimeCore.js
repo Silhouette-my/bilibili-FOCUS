@@ -1,7 +1,6 @@
 (function (global) {
   'use strict';
 
-  const DAY_IN_MS = 24 * 60 * 60 * 1000;
   const DEFAULT_SCHEDULE_LOOKAHEAD_DAYS = 8;
 
   function getShared(sharedOverride) {
@@ -642,7 +641,6 @@
   }
 
   global.BiliFocusRuntimeCore = Object.freeze({
-    DAY_IN_MS,
     DEFAULT_SCHEDULE_LOOKAHEAD_DAYS,
     valuesEqual,
     getFocusSessionActive,

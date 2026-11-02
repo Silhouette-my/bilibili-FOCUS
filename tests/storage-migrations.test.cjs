@@ -136,7 +136,8 @@ test('legacy scattered storage migrates idempotently without dropping user rules
     'preserved'
   );
   assert.deepEqual(plain(first.sync.unknownSyncKey), { keep: true });
-  assert.equal(first.sync.playerShortcutConfig.bindings.toggleSubtitle.code, 'KeyC');
+  assert.equal(first.sync.playerShortcutConfig.bindings.toggleSubtitle[0].code, 'KeyC');
+  assert.deepEqual(plain(first.sync.playerShortcutConfig.bindings.volumeUp), []);
   assert.equal(first.sync.playerShortcutConfig.futureShortcutField, 'preserved');
   assert.deepEqual(plain(first.local.unknownLocalKey), ['keep']);
   assert.equal(first.local.lockStatus.futureStatusField, 'preserved');
@@ -229,9 +230,9 @@ test('invalid fields fall back to conservative typed defaults', () => {
   assert.equal(result.sync.lockConfig.strictModeEnabled, true);
   assert.equal(result.sync.appearanceConfig.theme, 'light');
   assert.equal(result.sync.playerShortcutConfig.enabled, true);
-  assert.equal(result.sync.playerShortcutConfig.bindings.togglePlay, null);
-  assert.equal(result.sync.playerShortcutConfig.bindings.speedDown.code, 'KeyS');
-  assert.equal(result.sync.playerShortcutConfig.bindings.speedUp, null);
+  assert.deepEqual(plain(result.sync.playerShortcutConfig.bindings.togglePlay), []);
+  assert.equal(result.sync.playerShortcutConfig.bindings.speedDown[0].code, 'KeyS');
+  assert.deepEqual(plain(result.sync.playerShortcutConfig.bindings.speedUp), []);
   assert.equal(
     Object.prototype.hasOwnProperty.call(
       result.sync.playerShortcutConfig.bindings,
@@ -290,6 +291,43 @@ test('feature lock fields migrate with normalized keys, overrides, and snapshots
     autoPlayOffEnabled: false,
     searchMaskEnabled: true
   });
+
+  const second = schema.migrateStorageState(result.sync, result.local);
+  assert.equal(second.changed, false);
+  assert.deepEqual(plain(second.syncUpdates), {});
+  assert.deepEqual(plain(second.localUpdates), {});
+});
+
+test('schema 3 single shortcut bindings migrate to schema 4 binding arrays', () => {
+  const { schema } = loadStorageSchema();
+  const result = schema.migrateStorageState({
+    configSchemaVersion: 3,
+    playerShortcutConfig: {
+      enabled: true,
+      bindings: {
+        togglePlay: {
+          code: 'Space',
+          ctrl: false,
+          alt: false,
+          shift: false,
+          meta: false
+        }
+      }
+    }
+  }, {
+    runtimeSchemaVersion: schema.RUNTIME_SCHEMA_VERSION
+  });
+
+  assert.equal(result.sync.configSchemaVersion, 4);
+  assert.deepEqual(plain(result.sync.playerShortcutConfig.bindings.togglePlay), [{
+    code: 'Space',
+    ctrl: false,
+    alt: false,
+    shift: false,
+    meta: false
+  }]);
+  assert.deepEqual(plain(result.sync.playerShortcutConfig.bindings.volumeUp), []);
+  assert.deepEqual(plain(result.sync.playerShortcutConfig.bindings.brightnessDown), []);
 
   const second = schema.migrateStorageState(result.sync, result.local);
   assert.equal(second.changed, false);

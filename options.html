@@ -142,8 +142,8 @@
         <label class="check-card">
           <input type="checkbox" id="lockFeatureSearchMask" data-lock-feature-key="searchMaskEnabled">
           <span class="check-card-copy">
-            <strong>搜索页遮罩</strong>
-            <span>隐藏搜索结果与热搜，只保留精简搜索界面。</span>
+            <strong>搜索与热搜去干扰</strong>
+            <span>隐藏搜索结果、搜索页热搜及动态页右侧热搜。</span>
           </span>
         </label>
       </div>
@@ -154,7 +154,7 @@
         <div>
           <p class="section-kicker">播放器</p>
           <h2>自定义快捷键</h2>
-          <p>鼠标位于普通视频播放器内，或播放器处于网页全屏、全屏时生效。输入框与可编辑区域不会拦截。</p>
+          <p>在普通视频播放页内全局生效，无需把鼠标移到播放器上。输入框与可编辑区域不会拦截。</p>
         </div>
         <label class="switch-row">
           <span>启用自定义快捷键</span>
@@ -165,7 +165,7 @@
         </label>
       </div>
 
-      <p class="shortcut-help">点击“录制”后按下单键或组合键。新按键会自动从旧动作移除；浏览器和操作系统保留的组合键可能无法被网页接收。</p>
+      <p class="shortcut-help">每个动作可以录制多个单键或组合键。相同按键只会归属于一个动作，可单独移除或全部清除；浏览器和操作系统保留的组合键可能无法被网页接收。</p>
       <div id="shortcutBindingList" class="shortcut-binding-list"></div>
       <p id="shortcutRecordingHint" class="shortcut-recording-hint" role="status" aria-live="polite"></p>
     </section>

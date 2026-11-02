@@ -14,6 +14,7 @@ const RELEASE_FILES = Object.freeze([
   'controlPanel.css',
   'controlPanel.html',
   'controlPanel.js',
+  'dynamicHotSearch.js',
   'extensionIcon.png',
   'lockShared.js',
   'manifest.json',

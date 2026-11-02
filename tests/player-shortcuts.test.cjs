@@ -433,7 +433,11 @@ test('shortcut schema uses physical codes, exact modifiers, and safe defaults', 
   const normalized = shared.ensurePlayerShortcutConfig({
     enabled: true,
     bindings: {
-      togglePlay: binding('KeyC', { meta: true }),
+      togglePlay: [
+        binding('KeyC', { meta: true }),
+        binding('KeyP'),
+        binding('KeyP')
+      ],
       toggleMute: binding('KeyC', { meta: true }),
       speedUp: binding('Period', { shift: true }),
       speedDown: binding('CapsLock'),
@@ -442,10 +446,24 @@ test('shortcut schema uses physical codes, exact modifiers, and safe defaults', 
   });
 
   assert.equal(normalized.enabled, true);
-  assert.deepEqual(clone(normalized.bindings.togglePlay), binding('KeyC', { meta: true }));
-  assert.equal(normalized.bindings.toggleMute, null);
-  assert.equal(normalized.bindings.speedDown, null);
+  assert.deepEqual(clone(normalized.bindings.togglePlay), [
+    binding('KeyC', { meta: true }),
+    binding('KeyP')
+  ]);
+  assert.deepEqual(clone(normalized.bindings.toggleMute), []);
+  assert.deepEqual(clone(normalized.bindings.speedDown), []);
+  assert.deepEqual(clone(normalized.bindings.volumeUp), []);
   assert.equal(Object.hasOwn(normalized.bindings, 'unknownAction'), false);
+  assert.equal(
+    shared.shortcutBindingMatchesEvent(normalized.bindings.togglePlay, {
+      code: 'KeyP',
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+      metaKey: false
+    }),
+    true
+  );
   assert.equal(
     shared.shortcutBindingMatchesEvent(normalized.bindings.speedUp, {
       code: 'Period',
@@ -472,7 +490,6 @@ test('shortcuts require player context and release editable or composing input',
   const harness = await createHarness(shortcutConfig({
     togglePlay: binding('KeyP', { ctrl: true })
   }));
-  const { player, video } = appendPlayer(harness.document);
 
   let downstreamCount = 0;
   harness.window.addEventListener('keydown', () => {
@@ -483,7 +500,7 @@ test('shortcuts require player context and release editable or composing input',
   assert.equal(event.defaultPrevented, false);
   assert.equal(downstreamCount, 1);
 
-  harness.documentEvents.dispatch('pointerover', { target: video });
+  const { video } = appendPlayer(harness.document);
   const input = harness.document.createElement('input');
   event = harness.dispatchKey('KeyP', {
     ctrlKey: true,
@@ -523,48 +540,28 @@ test('shortcuts require player context and release editable or composing input',
   assert.equal(video.playCount, 1);
   assert.equal(downstreamCount, 6);
   assert.equal(harness.toastText(), '继续播放');
-
-  player.hovered = false;
-  harness.documentEvents.dispatch('pointerout', {
-    target: video,
-    relatedTarget: harness.document.body
-  });
 });
 
-test('hover, fullscreen, and 90 percent viewport coverage activate shortcuts', async () => {
+test('shortcuts work anywhere on video pages without player hover', async () => {
   const harness = await createHarness(shortcutConfig({
     toggleMute: binding('KeyM')
   }));
   const first = appendPlayer(harness.document);
 
-  first.player.hovered = true;
   let event = harness.dispatchKey('KeyM');
   assert.equal(event.defaultPrevented, true);
   assert.equal(first.video.muted, true);
 
-  first.player.hovered = false;
   harness.document.fullscreenElement = first.video;
   event = harness.dispatchKey('KeyM');
   assert.equal(event.defaultPrevented, true);
   assert.equal(first.video.muted, false);
 
   harness.document.fullscreenElement = null;
-  first.player.rect = {
-    top: 0,
-    left: 0,
-    right: 1280,
-    bottom: 660,
-    width: 1280,
-    height: 660
-  };
+  first.player.rect = { top: 100, left: 200, right: 300, bottom: 200, width: 100, height: 100 };
   event = harness.dispatchKey('KeyM');
   assert.equal(event.defaultPrevented, true);
   assert.equal(first.video.muted, true);
-
-  first.player.rect.bottom = 640;
-  first.player.rect.height = 640;
-  event = harness.dispatchKey('KeyM');
-  assert.equal(event.defaultPrevented, false);
 });
 
 test('native video actions clamp seeking and only seek actions repeat', async () => {
@@ -605,6 +602,54 @@ test('native video actions clamp seeking and only seek actions repeat', async ()
   player.hovered = false;
 });
 
+test('multiple bindings trigger one action and volume and brightness clamp safely', async () => {
+  const harness = await createHarness(shortcutConfig({
+    toggleMute: [binding('KeyM'), binding('KeyQ')],
+    volumeDown: binding('Minus'),
+    volumeUp: binding('Equal'),
+    brightnessDown: binding('BracketLeft'),
+    brightnessUp: binding('BracketRight')
+  }));
+  const { video } = appendPlayer(harness.document);
+  video.volume = 0.5;
+  video.style.filter = 'contrast(1.1)';
+
+  harness.dispatchKey('KeyM');
+  assert.equal(video.muted, true);
+  harness.dispatchKey('KeyQ');
+  assert.equal(video.muted, false);
+
+  let event = harness.dispatchKey('Equal', { repeat: true });
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(video.volume, 0.6);
+  assert.equal(harness.toastText(), '音量 60%');
+  harness.dispatchKey('Minus', { repeat: true });
+  assert.equal(video.volume, 0.5);
+
+  video.volume = 1;
+  harness.dispatchKey('Equal');
+  assert.equal(video.volume, 1);
+  video.volume = 0;
+  harness.dispatchKey('Minus');
+  assert.equal(video.volume, 0);
+
+  harness.dispatchKey('BracketRight', { repeat: true });
+  assert.equal(video.style.filter, 'contrast(1.1) brightness(1.1)');
+  assert.equal(harness.toastText(), '亮度 110%');
+  harness.dispatchKey('BracketLeft');
+  assert.equal(video.style.filter, 'contrast(1.1)');
+  for (let index = 0; index < 10; index += 1) {
+    harness.dispatchKey('BracketLeft', { repeat: true });
+  }
+  assert.equal(video.style.filter, 'contrast(1.1) brightness(0.5)');
+  assert.equal(harness.toastText(), '亮度 50%');
+  for (let index = 0; index < 20; index += 1) {
+    harness.dispatchKey('BracketRight', { repeat: true });
+  }
+  assert.equal(video.style.filter, 'contrast(1.1) brightness(2)');
+  assert.equal(harness.toastText(), '亮度 200%');
+});
+
 test('speed actions prefer native menu items and fall back to playbackRate', async () => {
   const harness = await createHarness(shortcutConfig({
     speedDown: binding('Comma'),
@@ -635,6 +680,11 @@ test('speed actions prefer native menu items and fall back to playbackRate', asy
   assert.equal(video.playbackRate, 0.75);
   video.playbackRate = 2;
   harness.dispatchKey('Period');
+  assert.equal(video.playbackRate, 3);
+  assert.equal(harness.toastText(), '倍速 3×');
+  harness.dispatchKey('Period');
+  assert.equal(video.playbackRate, 3);
+  harness.dispatchKey('Comma');
   assert.equal(video.playbackRate, 2);
   harness.dispatchKey('KeyR');
   assert.equal(video.playbackRate, 1);
@@ -659,17 +709,28 @@ test('semantic controls toggle safely and subtitle errors explain the cause', as
     player,
     'bpx-player-ctrl-subtitle-close-switch bpx-state-active'
   );
-  closeSwitch.onClick = () => closeSwitch.classList.remove('bpx-state-active');
-  appendControl(
+  closeSwitch.onClick = () => closeSwitch.classList.add('bpx-state-active');
+  const language = appendControl(
     harness.document,
     player,
     'bpx-player-ctrl-subtitle-language-item'
   );
+  language.onClick = () => closeSwitch.classList.remove('bpx-state-active');
   const danmaku = appendControl(
     harness.document,
     player,
     'bpx-player-dm-switch'
   );
+  const danmakuInput = appendControl(
+    harness.document,
+    danmaku,
+    'bui-danmaku-switch-input',
+    { tagName: 'input' }
+  );
+  danmakuInput.checked = false;
+  danmakuInput.onClick = () => {
+    danmakuInput.checked = !danmakuInput.checked;
+  };
   const web = appendControl(
     harness.document,
     player,
@@ -682,17 +743,29 @@ test('semantic controls toggle safely and subtitle errors explain the cause', as
   );
 
   harness.dispatchKey('KeyC');
-  assert.equal(closeSwitch.clickCount, 1);
+  assert.equal(language.clickCount, 1);
+  assert.equal(closeSwitch.clickCount, 0);
   assert.equal(subtitleControl.clickCount, 0);
+  assert.equal(closeSwitch.classList.contains('bpx-state-active'), false);
   assert.equal(harness.toastText(), '字幕已开启');
+  harness.dispatchKey('KeyC');
+  assert.equal(closeSwitch.clickCount, 1);
+  assert.equal(closeSwitch.classList.contains('bpx-state-active'), true);
+  assert.equal(harness.toastText(), '字幕已关闭');
+
   harness.dispatchKey('KeyD');
+  assert.equal(danmakuInput.clickCount, 1);
+  assert.equal(danmakuInput.checked, true);
+  assert.equal(danmaku.clickCount, 0);
+  assert.equal(harness.toastText(), '弹幕已开启');
+  harness.dispatchKey('KeyD');
+  assert.equal(danmakuInput.checked, false);
+  assert.equal(harness.toastText(), '弹幕已关闭');
   harness.dispatchKey('KeyW');
   harness.dispatchKey('KeyF');
-  assert.equal(danmaku.clickCount, 1);
   assert.equal(web.clickCount, 1);
   assert.equal(fullscreen.clickCount, 1);
 
-  const language = player.querySelector('.bpx-player-ctrl-subtitle-language-item');
   language.remove();
   harness.dispatchKey('KeyC');
   assert.equal(harness.toastText(), '当前视频没有可用字幕');
@@ -716,14 +789,13 @@ test('BFCache teardown is complete and replacement players work without duplicat
   const first = appendPlayer(harness.document, { hovered: true });
 
   assert.equal(harness.windowEvents.listenerCount('keydown'), 1);
-  assert.equal(harness.documentEvents.listenerCount('pointerover'), 1);
+  assert.equal(harness.documentEvents.listenerCount('pointerover'), 0);
   assert.equal(harness.client.subscriberCount(), 1);
   harness.dispatchKey('KeyM');
   assert.equal(first.video.muted, true);
 
   harness.windowEvents.dispatch('pagehide', {});
   assert.equal(harness.windowEvents.listenerCount('keydown'), 0);
-  assert.equal(harness.documentEvents.listenerCount('pointerover'), 0);
   assert.equal(harness.client.subscriberCount(), 0);
   assert.equal(harness.document.querySelector('#bili-focus-shortcut-toast'), null);
 
@@ -731,7 +803,7 @@ test('BFCache teardown is complete and replacement players work without duplicat
   harness.windowEvents.dispatch('pageshow', {});
   await harness.settle();
   assert.equal(harness.windowEvents.listenerCount('keydown'), 1);
-  assert.equal(harness.documentEvents.listenerCount('pointerover'), 1);
+  assert.equal(harness.documentEvents.listenerCount('pointerover'), 0);
   assert.equal(harness.client.subscriberCount(), 1);
 
   first.player.remove();
@@ -748,7 +820,7 @@ test('non-video pages keep installed shortcut listeners inert', async () => {
   const { player, video } = appendPlayer(harness.document, { hovered: true });
   const event = harness.dispatchKey('KeyP');
   assert.equal(harness.windowEvents.listenerCount('keydown'), 1);
-  assert.equal(harness.documentEvents.listenerCount('pointerover'), 1);
+  assert.equal(harness.documentEvents.listenerCount('pointerover'), 0);
   assert.equal(harness.client.subscriberCount(), 1);
   assert.equal(harness.client.getStateCalls.length, 1);
   assert.equal(event.defaultPrevented, false);

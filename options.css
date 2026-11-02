@@ -536,12 +536,47 @@ select {
 }
 
 .shortcut-binding-value {
-  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
-  text-overflow: ellipsis;
+}
+
+.shortcut-binding-empty {
+  color: var(--muted);
+}
+
+.shortcut-binding-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 5px 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--text);
   white-space: nowrap;
+}
+
+.shortcut-binding-remove {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 18px;
+}
+
+.shortcut-binding-remove:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .shortcut-row-actions {

@@ -25,6 +25,11 @@
       "js": ["searchOverlay.js"],
       "css": ["searchOverlay.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://t.bilibili.com/*"],
+      "js": ["dynamicHotSearch.js"],
+      "run_at": "document_idle"
     }
   ],
   "action": {
